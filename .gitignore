@@ -1,4 +1,12 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.DS_Store
+target/
+src-tauri/gen/android/.gradle/
+validation/phase-0/model-cache/
 .worktrees/
 .superpowers/
 outputs/
-
