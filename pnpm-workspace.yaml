@@ -1,3 +1,11 @@
 packages:
   - apps/*
   - packages/*
+
+allowBuilds:
+  esbuild: true
+
+# pnpm 11 blocks this already-locked transitive version until its release-age
+# window elapses. Keep the policy enabled and exempt only this exact version.
+minimumReleaseAgeExclude:
+  - node-releases@2.0.52

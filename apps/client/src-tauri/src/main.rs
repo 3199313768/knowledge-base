@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    appsclient_lib::run()
+    knowledge_base_lib::run()
 }
