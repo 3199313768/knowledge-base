@@ -1,4 +1,4 @@
-name: KnowledgeBase
+name: knowledge-base
 options:
   bundleIdPrefix: com.local.knowledgebase
   deploymentTarget:
@@ -23,6 +23,15 @@ targetTemplates:
         RUST_LOG: info
     settings:
       groups: [app]
+schemes:
+  knowledge-base_iOS:
+    build:
+      targets:
+        KnowledgeBase_iOS: all
+    run:
+      config: debug
+    archive:
+      config: release
 targets:
   KnowledgeBase_iOS:
     type: application
@@ -31,13 +40,15 @@ targets:
       - path: Sources
       - path: Assets.xcassets
       - path: Externals
-      - path: KnowledgeBase_iOS
+        optional: true
+      - path: knowledge-base_iOS
       - path: assets
         buildPhase: resources
         type: folder
+        optional: true
       - path: LaunchScreen.storyboard
     info:
-      path: KnowledgeBase_iOS/Info.plist
+      path: knowledge-base_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
@@ -54,7 +65,10 @@ targets:
         CFBundleShortVersionString: 0.1.0
         CFBundleVersion: "0.1.0"
     entitlements:
-      path: KnowledgeBase_iOS/KnowledgeBase_iOS.entitlements
+      path: knowledge-base_iOS/knowledge-base_iOS.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.local.knowledgebase
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
@@ -70,6 +84,8 @@ targets:
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
       groups: [app]
     dependencies:
+      - target: KnowledgeBaseShare
+        embed: true
       - framework: libapp.a
         embed: false
       - sdk: CoreGraphics.framework
@@ -86,3 +102,52 @@ targets:
         outputFiles:
           - $(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a
           - $(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a
+  KnowledgeBaseShare:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ../../../native/ios-share/SharePayload.swift
+      - path: ../../../native/ios-share/ShareQueueWriter.swift
+      - path: ../../../native/ios-share/ShareViewController.swift
+    info:
+      path: KnowledgeBaseShare/Info.plist
+      properties:
+        CFBundleDisplayName: KnowledgeBase
+        CFBundleShortVersionString: 0.1.0
+        CFBundleVersion: "0.1.0"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsAttachmentsWithMaxCount: 1
+              NSExtensionActivationSupportsFileWithMaxCount: 1
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+    entitlements:
+      path: KnowledgeBaseShare/KnowledgeBaseShare.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.local.knowledgebase
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.local.knowledgebase.share
+        PRODUCT_NAME: KnowledgeBaseShare
+        SKIP_INSTALL: true
+        APPLICATION_EXTENSION_API_ONLY: true
+  KnowledgeBaseShareTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ../../../native/ios-share/SharePayload.swift
+      - path: ../../../native/ios-share/ShareQueueWriter.swift
+      - path: ../../../native/ios-share/ShareQueueWriterTests.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: true
+        PRODUCT_BUNDLE_IDENTIFIER: com.local.knowledgebase.share.tests
+        PRODUCT_NAME: KnowledgeBaseShareTests
+    scheme:
+      testTargets:
+        - KnowledgeBaseShareTests
