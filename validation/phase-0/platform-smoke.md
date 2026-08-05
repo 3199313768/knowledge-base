@@ -44,4 +44,4 @@
 
 1. 依赖策略保持最小化：只排除 `node-releases@2.0.52` 的 release-age 检查，只允许 `esbuild` 构建；宿主已通过 269 条 supply-chain age 校验。
 2. 默认构建现已只生成 `.app`，符合 Phase 0 范围；DMG 不属于本阶段交付物。Codex shell 的 `tauri dev` 端口 `EPERM` 仍是沙箱边界；如需宿主 Mac 复验开发模式，执行 `cd /Users/yangqian/Documents/Codex/2026-08-04/w/.worktrees/phase-0 && pnpm --dir apps/client tauri dev`。
-3. Fix round 1 的四项审查 finding 已处理：实际小写 Apple 路径与身份文档、iOS 17/macOS 14 最低版本、默认 app-only build、pnpm 11.9.0 与最小供应链/生成物卫生策略。Task 2 仍待 task-scoped re-review，届时再标记最终完成。
+3. 2026-08-05 task-scoped re-review 已完成：`@knowledge-base/contracts` 2/2 测试、client 1/1 测试、三个 workspace 类型检查均退出 0；`pnpm --dir apps/client tauri build --debug` 退出 0 并生成 `KnowledgeBase.app`。结合上文已经独立观察的 Mac/iPhone 可见烟测，Task 2 验收完成。

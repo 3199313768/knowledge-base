@@ -1,0 +1,129 @@
+{
+  "model": "Xenova/multilingual-e5-small",
+  "dimensions": 384,
+  "queryCount": 10,
+  "hits": 10,
+  "recallAt5": 1,
+  "results": [
+    {
+      "query": "去年给客户的报价方案",
+      "expectedFileName": "华东区客户年度报价方案.pptx",
+      "returnedFileNames": [
+        "华东区客户年度报价方案.pptx",
+        "季度销售目标.xlsx",
+        "竞品价格网页.html",
+        "办公用品采购.xlsx",
+        "员工报销规则.pdf"
+      ],
+      "hit": true
+    },
+    {
+      "query": "设备坏了可以保修多久",
+      "expectedFileName": "设备保修期限.pdf",
+      "returnedFileNames": [
+        "设备保修期限.pdf",
+        "售后响应标准.docx",
+        "服务器升级计划.xlsx",
+        "客户续约复盘.pdf",
+        "数据备份制度.pdf"
+      ],
+      "hit": true
+    },
+    {
+      "query": "项目为什么延期",
+      "expectedFileName": "项目延期原因.docx",
+      "returnedFileNames": [
+        "项目延期原因.docx",
+        "发布回滚流程.docx",
+        "信息安全制度.pdf",
+        "服务器升级计划.xlsx",
+        "员工报销规则.pdf"
+      ],
+      "hit": true
+    },
+    {
+      "query": "出差住宿能报多少钱",
+      "expectedFileName": "差旅政策.pdf",
+      "returnedFileNames": [
+        "差旅政策.pdf",
+        "员工报销规则.pdf",
+        "办公用品采购.xlsx",
+        "合同审批流程.pdf",
+        "竞品价格网页.html"
+      ],
+      "hit": true
+    },
+    {
+      "query": "上线失败后怎么恢复",
+      "expectedFileName": "发布回滚流程.docx",
+      "returnedFileNames": [
+        "发布回滚流程.docx",
+        "数据备份制度.pdf",
+        "服务器升级计划.xlsx",
+        "会议室使用规则.png",
+        "售后响应标准.docx"
+      ],
+      "hit": true
+    },
+    {
+      "query": "客户问题多久必须响应",
+      "expectedFileName": "售后响应标准.docx",
+      "returnedFileNames": [
+        "售后响应标准.docx",
+        "项目延期原因.docx",
+        "客户续约复盘.pdf",
+        "信息安全制度.pdf",
+        "员工报销规则.pdf"
+      ],
+      "hit": true
+    },
+    {
+      "query": "新同事入职要做什么",
+      "expectedFileName": "新员工手册.pdf",
+      "returnedFileNames": [
+        "新员工手册.pdf",
+        "信息安全制度.pdf",
+        "招聘流程.docx",
+        "办公用品采购.xlsx",
+        "产品路线图.pptx"
+      ],
+      "hit": true
+    },
+    {
+      "query": "合同需要谁批准",
+      "expectedFileName": "合同审批流程.pdf",
+      "returnedFileNames": [
+        "合同审批流程.pdf",
+        "售后响应标准.docx",
+        "信息安全制度.pdf",
+        "员工报销规则.pdf",
+        "发布回滚流程.docx"
+      ],
+      "hit": true
+    },
+    {
+      "query": "数据丢失后从哪里恢复",
+      "expectedFileName": "数据备份制度.pdf",
+      "returnedFileNames": [
+        "数据备份制度.pdf",
+        "信息安全制度.pdf",
+        "设备保修期限.pdf",
+        "售后响应标准.docx",
+        "发布回滚流程.docx"
+      ],
+      "hit": true
+    },
+    {
+      "query": "公司 logo 应该怎么使用",
+      "expectedFileName": "品牌视觉规范.pdf",
+      "returnedFileNames": [
+        "品牌视觉规范.pdf",
+        "信息安全制度.pdf",
+        "新员工手册.pdf",
+        "设备保修期限.pdf",
+        "会议室使用规则.png"
+      ],
+      "hit": true
+    }
+  ]
+}

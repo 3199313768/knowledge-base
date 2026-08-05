@@ -1,0 +1,162 @@
+[
+  {
+    "fileId": "00000000-0000-0000-0000-000000000001",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "华东区客户年度报价方案.pptx",
+    "sourceType": "pptx",
+    "content": "重点客户按照年度采购规模分为三个区间，采用年度阶梯报价。续约折扣根据上年度实际使用量调整。",
+    "sourceLocation": { "kind": "slide", "label": "第 12 页" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000002",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "设备保修期限.pdf",
+    "sourceType": "pdf",
+    "content": "公司采购的办公设备自验收之日起保修三年。人为损坏不在免费保修范围内。",
+    "sourceLocation": { "kind": "page", "label": "第 3 页" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000003",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "项目延期原因.docx",
+    "sourceType": "docx",
+    "content": "项目延期的主要原因是客户需求在验收前两周发生变更。外部接口联调晚于计划五个工作日完成。",
+    "sourceLocation": { "kind": "text", "label": "延期复盘" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000004",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "员工报销规则.pdf",
+    "sourceType": "pdf",
+    "content": "报销申请应在费用发生后三十天内提交。超过五千元的单笔费用需要部门负责人复核。",
+    "sourceLocation": { "kind": "page", "label": "第 2 页" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000005",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "服务器升级计划.xlsx",
+    "sourceType": "xlsx",
+    "content": "生产服务器升级安排在周六凌晨一点开始。预计维护窗口为两小时，期间保留只读访问。",
+    "sourceLocation": { "kind": "sheet", "label": "工作表“升级排期”" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000006",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "产品路线图.pptx",
+    "sourceType": "pptx",
+    "content": "第三季度发布团队空间与成员权限。第四季度重点建设资料搜索和移动端导入能力。",
+    "sourceLocation": { "kind": "slide", "label": "第 6 页" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000007",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "客户续约复盘.pdf",
+    "sourceType": "pdf",
+    "content": "客户选择续约三年是因为故障响应速度明显改善。续约谈判中保留了原有阶梯折扣。",
+    "sourceLocation": { "kind": "page", "label": "第 8 页" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000008",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "信息安全制度.pdf",
+    "sourceType": "pdf",
+    "content": "包含客户信息的资料必须存放在受控团队空间。成员离职后应在当天撤销访问权限。",
+    "sourceLocation": { "kind": "page", "label": "第 5 页" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000009",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "招聘流程.docx",
+    "sourceType": "docx",
+    "content": "技术岗位至少安排两轮专业面试。录用审批由用人经理和人力负责人共同完成。",
+    "sourceLocation": { "kind": "text", "label": "录用审批" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000010",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "办公用品采购.xlsx",
+    "sourceType": "xlsx",
+    "content": "常用办公用品每月二十五日前集中申购。单项金额超过一千元需要行政负责人确认。",
+    "sourceLocation": { "kind": "sheet", "label": "工作表“采购规则”" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000011",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "品牌视觉规范.pdf",
+    "sourceType": "pdf",
+    "content": "公司标志周围必须保留不小于标志高度二分之一的留白。不得拉伸、旋转或改变标准颜色。",
+    "sourceLocation": { "kind": "page", "label": "第 4 页" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000012",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "竞品价格网页.html",
+    "sourceType": "web",
+    "content": "竞品企业版按账号数量阶梯计价。年度付费相比月付方案提供百分之十五折扣。",
+    "sourceLocation": { "kind": "web", "label": "竞品定价页面", "url": "https://example.com/pricing" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000013",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "合同审批流程.pdf",
+    "sourceType": "pdf",
+    "content": "标准合同由业务负责人和法务审批。金额超过五十万元时还需要财务负责人和总经理批准。",
+    "sourceLocation": { "kind": "page", "label": "第 7 页" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000014",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "售后响应标准.docx",
+    "sourceType": "docx",
+    "content": "严重故障必须在十五分钟内首次响应。普通咨询应在四个工作小时内回复客户。",
+    "sourceLocation": { "kind": "text", "label": "响应时限" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000015",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "差旅政策.pdf",
+    "sourceType": "pdf",
+    "content": "一线城市住宿标准为每晚八百元以内。其他城市住宿标准为每晚五百元以内。",
+    "sourceLocation": { "kind": "page", "label": "第 6 页" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000016",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "季度销售目标.xlsx",
+    "sourceType": "xlsx",
+    "content": "华东区域第三季度销售目标为一千二百万元。新客户收入应占季度收入的百分之三十。",
+    "sourceLocation": { "kind": "sheet", "label": "工作表“Q3 目标”" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000017",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "新员工手册.pdf",
+    "sourceType": "pdf",
+    "content": "新员工第一天需要完成账号开通和安全培训。第一周内由直属负责人安排岗位目标沟通。",
+    "sourceLocation": { "kind": "page", "label": "第 9 页" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000018",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "发布回滚流程.docx",
+    "sourceType": "docx",
+    "content": "上线验证失败时立即停止继续发布。负责人应恢复上一稳定版本并执行数据库兼容性检查。",
+    "sourceLocation": { "kind": "text", "label": "紧急回滚" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000019",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "数据备份制度.pdf",
+    "sourceType": "pdf",
+    "content": "业务数据库每天执行一次完整备份并保留三十天。恢复时优先使用最近一次验证成功的备份副本。",
+    "sourceLocation": { "kind": "page", "label": "第 3 页" }
+  },
+  {
+    "fileId": "00000000-0000-0000-0000-000000000020",
+    "workspaceId": "20000000-0000-0000-0000-000000000001",
+    "fileName": "会议室使用规则.png",
+    "sourceType": "image",
+    "content": "会议室预订后超过十五分钟未到场将自动释放。使用结束前需要恢复桌椅并关闭显示设备。",
+    "sourceLocation": { "kind": "image", "label": "OCR 全图" }
+  }
+]

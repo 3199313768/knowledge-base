@@ -1,0 +1,22 @@
+{
+  "name": "@knowledge-base/search-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "evaluate": "tsx src/evaluate.ts"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "@knowledge-base/contracts": "workspace:*",
+    "@supabase/supabase-js": "^2.112.0",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "tsx": "^4.23.5",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

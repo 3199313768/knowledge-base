@@ -4,6 +4,9 @@ packages:
 
 allowBuilds:
   esbuild: true
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true
 
 # pnpm 11 blocks this already-locked transitive version until its release-age
 # window elapses. Keep the policy enabled and exempt only this exact version.
