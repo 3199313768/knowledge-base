@@ -6,7 +6,7 @@
 
 iPhone 可见烟测：控制器通过 Computer Use 独立观察 Simulator 窗口 `iPhone 17 Pro`（iOS 26.5），页面显示标题“Knowledge Base 技术验证”和正文“Mac 与 iPhone 共用同一个 React 入口。” **通过**。
 
-2026-08-05 本轮本地自动化复核：`@knowledge-base/contracts` 2/2 测试、client 1/1 测试和三个 workspace 的 `pnpm typecheck` 均退出码 0；`pnpm --dir apps/client tauri build --debug` 退出码 0 并生成 `KnowledgeBase.app`。搜索 spike 的测试需要访问 linked 云端开发项目，本轮未将其包含在本地测试通过数中。
+2026-08-05 本轮自动化复核：`pnpm test` 的 client 1/1、contracts 2/2、search-spike 3/3 测试全部通过，共 6/6；三个 workspace 的 `pnpm typecheck` 均退出码 0；`pnpm --dir apps/client tauri build --debug` 退出码 0 并生成 `KnowledgeBase.app`。
 
 ## Share Extension
 
@@ -22,7 +22,7 @@ iPhone 可见烟测：控制器通过 Computer Use 独立观察 Simulator 窗口
 
 ## Semantic retrieval
 
-最近一次已记录的 `pnpm --filter @knowledge-base/search-spike evaluate` 结果：
+2026-08-05 本轮 `pnpm --filter @knowledge-base/search-spike evaluate` 结果：
 
 ```json
 {
@@ -32,17 +32,23 @@ iPhone 可见烟测：控制器通过 Computer Use 独立观察 Simulator 窗口
 }
 ```
 
-模型：`Xenova/multilingual-e5-small`，维度 384；远程项目 `lzlckiyblyhlgabztwax` 已应用 `spike_chunks` / `match_spike_chunks`。
+模型：`Xenova/multilingual-e5-small`，维度 384；10 个查询全部在 Top 5 命中，Recall@5 = 1.0。
 
-历史 workspace 隔离观察（与 `supabase/tests/search_spike_test.sql` 等价断言，经 `supabase db query --linked` 观察）：
+`supabase migration list` 成功连接专用云端开发项目；本地与远程迁移历史一致：
 
-- `workspace_a_count = 1`
-- `workspace_a_file = 团队 A 报价.pdf`
+- Local：`20260804000100`
+- Remote：`20260804000100`
 
-本轮计划执行 `supabase migration list`、`supabase test db --linked supabase/tests/search_spike_test.sql` 和 fresh 语义评估，但 Codex 权限审批服务连续返回 503，命令没有启动，也没有访问或修改云端数据库。因此 linked 迁移历史、pgTAP 和 fresh Recall@5 尚无本轮证据。
+真实云端 workspace 隔离门禁：
+
+- `pnpm --filter @knowledge-base/search-spike exec vitest run src/cloud-isolation.test.ts`：1/1 通过。
+- 测试使用两个随机 workspace 和两条同向量合成记录调用 `match_spike_chunks`，workspace A 的查询只返回 A 文件，不返回 B 文件，并在 `finally` 中清理合成数据。
+- 该测试也包含在上述全仓 `pnpm test` 的 search-spike 3/3 通过结果中。
+
+`supabase test db --linked supabase/tests/search_spike_test.sql` 已成功连接远程数据库，但 Supabase CLI 随后要求本地 Docker daemon 来启动 pgTAP 执行器，因此在 cloud-only 开发模式下未运行。SQL pgTAP 文件继续保留为可选检查；必过隔离门禁由不依赖 Docker、直接访问专用云端项目的 Vitest 集成测试承担。
 
 ## Next action
 
-**Decision:** NO-GO
+**Decision:** GO
 
-待权限审批服务恢复后，重新执行 linked 迁移历史检查、pgTAP、语义评估和全仓测试；只有全部退出码为 0 才改为 `GO` 并编写 Phase 1 云端基础实施计划。
+编写 Phase 1 云端基础实施计划，继续使用专用 Supabase 云端开发项目，并将真实云端 Vitest 集成测试作为数据库隔离门禁；本地 Docker 栈和 linked pgTAP 不作为前端开发前置条件。

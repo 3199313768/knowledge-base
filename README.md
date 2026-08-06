@@ -20,7 +20,7 @@ Phase 0 技术验证仓库：在完整 MVP 之前，验证三条高风险假设�
 ├── packages/
 │   └── contracts/              # 搜索契约类型与校验
 ├── fixtures/search/            # 合成语料与评测查询
-├── supabase/                   # 云端开发项目迁移与 linked pgTAP
+├── supabase/                   # 云端开发项目迁移与可选 pgTAP
 ├── validation/phase-0/         # 烟测与裁决证据
 ├── package.json
 ├── pnpm-workspace.yaml
@@ -48,7 +48,7 @@ Phase 0 技术验证仓库：在完整 MVP 之前，验证三条高风险假设�
 | 2 | 证明 Mac / iPhone 可跑同一 React 入口 | 见 `validation/phase-0/platform-smoke.md` |
 | 3 | 证明 Share Extension → App Group 往返 | 见 `validation/phase-0/app-group-roundtrip.md` |
 | 4 | 证明中文语义检索（pgvector） | 见 `validation/phase-0/search-evaluation.json`（Recall@5 = 1.0） |
-| 5 | 汇总证据，写出 `GO` / `NO-GO` | **NO-GO**：等待 linked 云端门禁取得本轮证据 |
+| 5 | 汇总证据，写出 `GO` / `NO-GO` | **GO**：平台、分享、云端隔离与语义检索门禁均通过 |
 
 ## 环境要求
 
@@ -76,8 +76,11 @@ Phase 0 技术验证仓库：在完整 MVP 之前，验证三条高风险假设�
 
 ```bash
 supabase migration list
-supabase test db --linked supabase/tests/search_spike_test.sql
+pnpm --filter @knowledge-base/search-spike exec vitest run src/cloud-isolation.test.ts
+pnpm --filter @knowledge-base/search-spike evaluate
 ```
+
+`cloud-isolation.test.ts` 直接连接专用 Supabase 云端开发项目，在 `finally` 清理保护下验证 workspace 隔离，不需要本地 Docker。`supabase test db --linked supabase/tests/search_spike_test.sql` 保留为可选 pgTAP 检查；Supabase CLI 的该测试执行器仍依赖本地 Docker daemon，不属于云端-only 开发的必过门禁。
 
 ## 快速开始
 
