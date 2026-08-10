@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run --environment jsdom",
+    "test:unit": "vitest run --environment jsdom",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

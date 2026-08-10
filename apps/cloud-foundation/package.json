@@ -1,0 +1,19 @@
+{
+  "name": "@knowledge-base/cloud-foundation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:cloud": "vitest run --config vitest.cloud.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.0",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

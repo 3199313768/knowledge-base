@@ -76,11 +76,45 @@ Phase 0 技术验证仓库：在完整 MVP 之前，验证三条高风险假设�
 
 ```bash
 supabase migration list
-pnpm --filter @knowledge-base/search-spike exec vitest run src/cloud-isolation.test.ts
+pnpm test:phase0-cloud
 pnpm --filter @knowledge-base/search-spike evaluate
 ```
 
-`cloud-isolation.test.ts` 直接连接专用 Supabase 云端开发项目，在 `finally` 清理保护下验证 workspace 隔离，不需要本地 Docker。`supabase test db --linked supabase/tests/search_spike_test.sql` 保留为可选 pgTAP 检查；Supabase CLI 的该测试执行器仍依赖本地 Docker daemon，不属于云端-only 开发的必过门禁。
+`test:phase0-cloud` 直接连接专用 Supabase 云端开发项目，验证 Phase 0 的搜索 spike。它只是历史技术验证，不是 Phase 1 权限门禁，也不能作为后续产品阶段的安全证据。`supabase test db --linked supabase/tests/search_spike_test.sql` 保留为可选 pgTAP 检查；Supabase CLI 的该测试执行器仍依赖本地 Docker daemon，不属于云端-only 开发的必过门禁。
+
+## Phase 1 安全门禁
+
+本地与云端证据必须分开记录：
+
+```bash
+# Hermetic local tests; no Supabase access
+pnpm test
+pnpm typecheck
+
+# Dedicated allowlisted development project only; creates and cleans synthetic data
+pnpm test:cloud
+
+# Required Phase 1 gate: local layers first, then the serial cloud suite
+pnpm verify:phase-1
+```
+
+`pnpm test:cloud` 只运行 `@knowledge-base/cloud-foundation` 中的 `src/**/*.cloud.test.ts`；`vitest.cloud.config.ts` 关闭文件并行并将并发度限制为 1。`pnpm verify:phase-1` 按 `pnpm test` → `pnpm typecheck` → `pnpm test:cloud` 顺序执行，因此本地结果不能代替云端 RLS/Storage 结果，云端结果也不能代替本地单元测试与类型检查。
+
+云端门禁需要在根目录 `.env.local` 配置下列环境变量（本文档不记录任何值）：
+
+- `SUPABASE_ENVIRONMENT`
+- `SUPABASE_TEST_PROJECT_REF`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+`SUPABASE_TEST_PROJECT_REF` 必须是专用、非生产、只含合成测试数据的开发项目，且必须先在 `apps/cloud-foundation/src/approvedTestProjects.ts` 通过代码评审加入允许列表；默认空列表会拒绝云端写测试。`SUPABASE_SERVICE_ROLE_KEY` 仅用于合成 actor 和成员 fixture 准备、精确清理、可信 worker RPC 以及必要的处理 fixture；RLS、成员权限、跨团队读写与 Storage 授权断言必须使用普通 `authenticated` JWT，不得用 `service_role` 证明。
+
+Task 8 的空白项目重建还需要仅存在于当前 shell 的 `PHASE1_REBUILD_PROJECT_REF`；不得把项目 ref 或密钥值写入仓库。邀请邮件部署/实投递另需 `INVITATION_ACCEPT_BASE_URL`、`RESEND_API_KEY` 与 `INVITATION_FROM_EMAIL`，且 mocked email 与 live email 必须分别记录。当前没有获批的一次性 Supabase Branch/空白项目，cloud allowlist 为空，workspace 依赖链接也尚未恢复；项目 link、migration deploy、Deno/Resend/live email 与云端 gate 均未执行。
+
+Phase 0 的历史 `GO`、Recall@5 或 service-role spike 隔离结果都不代表 Phase 1 通过。本次 Task 7 已更新门禁源码合同，仍待静态复审与后续授权执行；按用户要求未执行上述命令，所以当前状态是 **UNRUN**，不是 `PASS` 或 Phase 1 `GO`。
+
+Task 8 静态裁决见 `validation/phase-1/decision.md`：当前为 **NOT EVALUATED / NO-GO FOR RELEASE**。这是缺少空项目重建与动态门禁证据的发布阻断，不是静态源码失败结论；Phase 1 不标记完成，也不进入 Phase 2。
 
 ## 快速开始
 

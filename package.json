@@ -3,7 +3,11 @@
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "scripts": {
-    "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "test": "pnpm -r --if-present test:unit",
+    "test:cloud": "pnpm --filter @knowledge-base/cloud-foundation test:cloud",
+    "test:phase0-model": "pnpm --filter @knowledge-base/search-spike test:model",
+    "test:phase0-cloud": "pnpm --filter @knowledge-base/search-spike test:cloud",
+    "typecheck": "pnpm -r typecheck",
+    "verify:phase-1": "pnpm test && pnpm typecheck && pnpm test:cloud"
   }
 }

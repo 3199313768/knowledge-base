@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run",
+    "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:model": "vitest run src/embed.external.test.ts",
+    "test:cloud": "vitest run src/evaluate.cloud.test.ts src/cloud-isolation.cloud.test.ts",
     "typecheck": "tsc --noEmit",
     "evaluate": "tsx src/evaluate.ts"
   },
