@@ -18,16 +18,29 @@ export interface OriginalDescriptor {
   sizeBytes: number;
 }
 
-export interface ClaimedJob {
+interface ClaimedJobBase {
   jobId: string;
   versionId: string;
   fileId: string;
   workspaceId: string;
-  stage: ActiveProcessingStage;
   attempt: number;
   leaseExpiresAt: Date;
+}
+
+export interface ClaimedActiveJob extends ClaimedJobBase {
+  stage: ActiveProcessingStage;
   original: OriginalDescriptor;
 }
+
+export interface ClaimedCleanupJob extends ClaimedJobBase {
+  stage: 'cleanup';
+  original: {
+    storagePath: string | null;
+  };
+}
+
+export type ClaimedJob = ClaimedActiveJob | ClaimedCleanupJob;
+export type WorkerStage = ClaimedJob['stage'];
 
 export interface FailureReport {
   code: ProcessingErrorCode;
@@ -55,7 +68,7 @@ export interface ProcessingRepository {
   ): Promise<Date>;
   completeStage(
     job: ClaimedJob,
-    nextStage: ActiveProcessingStage,
+    nextStage: ActiveProcessingStage | null,
     signal: AbortSignal
   ): Promise<void>;
   failStage(
@@ -88,6 +101,7 @@ export interface OriginalStore {
     destinationPath: string,
     signal: AbortSignal
   ): Promise<void>;
+  remove(storagePath: string, signal: AbortSignal): Promise<void>;
 }
 
 export interface ArtifactStore {
@@ -154,7 +168,7 @@ export type StageHandler = (
   context: LeaseGuard
 ) => Promise<void>;
 
-export type StageHandlers = Record<ActiveProcessingStage, StageHandler>;
+export type StageHandlers = Record<WorkerStage, StageHandler>;
 
 export interface RunnerDependencies {
   repository: ProcessingRepository;

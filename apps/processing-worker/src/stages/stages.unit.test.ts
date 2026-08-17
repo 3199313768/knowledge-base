@@ -11,6 +11,7 @@ import type {
   ProcessingRepository
 } from '../core/ports';
 import { createChunkStage } from './chunkStage';
+import { createCleanupStage } from './cleanupStage';
 import { createEmbedStage } from './embedStage';
 import { createExtractStage } from './extractStage';
 import { createFinalizeStage } from './finalizeStage';
@@ -81,7 +82,8 @@ it('validate downloads into a per-job temporary directory, advances, and removes
       download: async (_original, destination) => {
         downloadedPath = destination;
         await writeFile(destination, pdfBytes);
-      }
+      },
+      remove: async () => undefined
     }
   });
 
@@ -102,7 +104,8 @@ it('extract rechecks checksum, stores canonical normalized gzip, records warning
       download: async (_original, destination) => {
         downloadedPath = destination;
         await writeFile(destination, pdfBytes);
-      }
+      },
+      remove: async () => undefined
     },
     extractorRegistry: {
       get: () => ({
@@ -138,7 +141,8 @@ it('extract fails closed on checksum drift and still removes the temporary file'
       download: async (_original, destination) => {
         downloadedPath = destination;
         await writeFile(destination, Buffer.from('%PDF-1.4\nchanged\n'));
-      }
+      },
+      remove: async () => undefined
     },
     extractorRegistry: { get: () => undefined }
   });
@@ -229,4 +233,45 @@ it('finalize publishes partial warning state before best-effort exact artifact c
     'finalize:partially_searchable:ocr_required',
     'cleanup'
   ]);
+});
+
+it('cleanup removes an uploaded original and completes without a successor stage', async () => {
+  const events: string[] = [];
+  const stage = createCleanupStage({
+    repository: repository(events),
+    originalStore: {
+      download: async () => undefined,
+      remove: async (storagePath) => { events.push(`remove:${storagePath}`); }
+    }
+  });
+
+  await stage({
+    ...baseJob,
+    stage: 'cleanup',
+    original: { storagePath: 'workspace/version/source.pdf' }
+  }, guard);
+
+  expect(events).toEqual([
+    'remove:workspace/version/source.pdf',
+    'complete:null'
+  ]);
+});
+
+it('cleanup completes a deleted web version without attempting a storage deletion', async () => {
+  const events: string[] = [];
+  const stage = createCleanupStage({
+    repository: repository(events),
+    originalStore: {
+      download: async () => undefined,
+      remove: async () => { events.push('remove'); }
+    }
+  });
+
+  await stage({
+    ...baseJob,
+    stage: 'cleanup',
+    original: { storagePath: null }
+  }, guard);
+
+  expect(events).toEqual(['complete:null']);
 });

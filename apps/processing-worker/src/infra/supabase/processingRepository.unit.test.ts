@@ -12,7 +12,7 @@ const ids = {
 
 function fakeClient() {
   const calls: Array<{ name: string; args?: unknown }> = [];
-  const claimRows = [{
+  const claimRows: unknown[] = [{
     job_id: ids.job,
     version_id: ids.version,
     file_id: ids.file,
@@ -98,6 +98,31 @@ describe('processing repository', () => {
       }
     });
     expect(claimed).not.toHaveProperty('job_id');
+  });
+
+  it('claims a deleted web version cleanup job without requiring upload metadata', async () => {
+    const fake = fakeClient();
+    fake.claimRows.splice(0, 1, {
+      job_id: ids.job,
+      version_id: ids.version,
+      file_id: ids.file,
+      workspace_id: ids.workspace,
+      stage: 'cleanup',
+      storage_path: null,
+      original_url: 'https://example.test/article',
+      mime_type: 'text/html',
+      checksum: null,
+      size_bytes: null,
+      attempt: 1,
+      lease_expires_at: '2026-08-10T10:00:00.000Z'
+    });
+    const repository = createProcessingRepository(fake.client, 'worker-a');
+
+    await expect(repository.claim('worker-a', 120, new AbortController().signal))
+      .resolves.toMatchObject({
+        stage: 'cleanup',
+        original: { storagePath: null }
+      });
   });
 
   it('uses only the six frozen worker RPC names for job mutations', async () => {

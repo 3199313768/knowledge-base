@@ -74,21 +74,7 @@ export function createProcessingRepository(
       if (rows.length !== 1) throw infrastructureFailure();
       const row = parseClaimRow(rows[0]);
       signal.throwIfAborted();
-      return {
-        jobId: row.jobId,
-        versionId: row.versionId,
-        fileId: row.fileId,
-        workspaceId: row.workspaceId,
-        stage: row.stage,
-        attempt: row.attempt,
-        leaseExpiresAt: row.leaseExpiresAt,
-        original: {
-          storagePath: row.storagePath,
-          mimeType: row.mimeType,
-          checksum: row.checksum,
-          sizeBytes: row.sizeBytes
-        }
-      };
+      return row;
     },
     async heartbeat(job, workerId, leaseSeconds, signal) {
       signal.throwIfAborted();
@@ -213,17 +199,33 @@ async function rpcVoid(
   signal.throwIfAborted();
 }
 
-function parseClaimRow(value: unknown): Omit<ClaimedJob, 'original'> & {
-  storagePath: string;
-  mimeType: string;
-  checksum: string;
-  sizeBytes: number;
-} {
+function parseClaimRow(value: unknown): ClaimedJob {
   const row = record(value);
   assertUuid(row.job_id);
   assertUuid(row.version_id);
   assertUuid(row.file_id);
   assertUuid(row.workspace_id);
+  if (row.stage === 'cleanup') {
+    if (row.storage_path !== null && typeof row.storage_path !== 'string') {
+      throw infrastructureFailure();
+    }
+    if (typeof row.storage_path === 'string' && !row.storage_path.trim()) {
+      throw infrastructureFailure();
+    }
+    if (!Number.isSafeInteger(row.attempt) || (row.attempt as number) < 1 || (row.attempt as number) > 3) {
+      throw infrastructureFailure();
+    }
+    return {
+      jobId: row.job_id as string,
+      versionId: row.version_id as string,
+      fileId: row.file_id as string,
+      workspaceId: row.workspace_id as string,
+      stage: 'cleanup',
+      original: { storagePath: row.storage_path },
+      attempt: row.attempt as number,
+      leaseExpiresAt: parseDate(row.lease_expires_at)
+    };
+  }
   if (!activeStages.has(row.stage as ActiveProcessingStage)) throw infrastructureFailure();
   if (typeof row.storage_path !== 'string' || !row.storage_path.trim()) {
     throw infrastructureFailure();
@@ -246,10 +248,12 @@ function parseClaimRow(value: unknown): Omit<ClaimedJob, 'original'> & {
     fileId: row.file_id as string,
     workspaceId: row.workspace_id as string,
     stage: row.stage as ActiveProcessingStage,
-    storagePath: row.storage_path,
-    mimeType: row.mime_type,
-    checksum: row.checksum,
-    sizeBytes: row.size_bytes as number,
+    original: {
+      storagePath: row.storage_path,
+      mimeType: row.mime_type,
+      checksum: row.checksum,
+      sizeBytes: row.size_bytes as number
+    },
     attempt: row.attempt as number,
     leaseExpiresAt: parseDate(row.lease_expires_at)
   };

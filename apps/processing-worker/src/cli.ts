@@ -14,6 +14,7 @@ import {
 import { createWorkerSupabaseClient } from './infra/supabase/client';
 import { createProcessingRepository } from './infra/supabase/processingRepository';
 import { createChunkStage } from './stages/chunkStage';
+import { createCleanupStage } from './stages/cleanupStage';
 import { createEmbedStage } from './stages/embedStage';
 import { createExtractStage } from './stages/extractStage';
 import { createFinalizeStage } from './stages/finalizeStage';
@@ -92,7 +93,8 @@ async function main(): Promise<void> {
       chunkRepository,
       embeddingProvider
     }),
-    finalize: createFinalizeStage({ repository, artifactStore, logger })
+    finalize: createFinalizeStage({ repository, artifactStore, logger }),
+    cleanup: createCleanupStage({ repository, originalStore })
   };
 
   await startWorkerRuntime({

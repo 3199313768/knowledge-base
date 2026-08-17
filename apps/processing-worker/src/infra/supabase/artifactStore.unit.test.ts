@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 
 import { ProcessingFailure } from '../../core/errors';
-import { createArtifactStore } from './artifactStore';
+import { createArtifactStore, createOriginalStore } from './artifactStore';
 
 const workspaceId = '40000000-0000-4000-8000-000000000004';
 const versionId = '20000000-0000-4000-8000-000000000002';
@@ -62,6 +62,21 @@ it('deletes only the two exact artifacts below a validated version prefix', asyn
       `processing/${workspaceId}/${versionId}/normalized-v1.json.gz`,
       `processing/${workspaceId}/${versionId}/chunks-v1.json.gz`
     ]
+  }]);
+});
+
+it('deletes exactly one validated original storage path', async () => {
+  const fake = fakeClient();
+  const store = createOriginalStore(fake.client);
+
+  await store.remove(
+    `${workspaceId}/${versionId}/source.pdf`,
+    new AbortController().signal
+  );
+
+  expect(fake.calls).toEqual([{
+    operation: 'remove',
+    path: [`${workspaceId}/${versionId}/source.pdf`]
   }]);
 });
 

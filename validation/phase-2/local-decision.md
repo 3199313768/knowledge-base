@@ -1,8 +1,8 @@
 # Phase 2 本地决策
 
 - 决策日期：2026-08-17（Asia/Shanghai）
-- 当前提交：`79f70f98a57c713bb2c7e9ca9db6773eecaf5dca`
-- 工作区：存在当前实现的已修改与未跟踪文件；未执行 `git add`、commit、push 或 PR。
+- 当前提交：`5ff634bd830197a0a684e4690a6b0df04cb73ac6`
+- 提交基准工作区：`main` 与 `origin/main` 对齐；当前有未提交的 cleanup worker 修复、对应单测和本记录更新。
 - 证据边界：只记录本地单元测试、缓存模型测试、TypeScript 检查和静态文件检查；没有连接 Supabase，也没有运行 pgTAP、迁移、真实 worker 或云端授权测试。
 
 ## 本地门禁
@@ -17,11 +17,16 @@ pnpm verify:phase-2-local
 
 | 层 | 结果 |
 |---|---|
-| workspace 单元测试 | 25 个测试文件，161 个测试通过 |
-| processing-worker | 13 个测试文件，115 个测试通过 |
+| workspace 单元测试 | 25 个测试文件，165 个测试通过 |
+| processing-worker | 13 个测试文件，119 个测试通过 |
 | search-core 离线模型 | 1 个测试文件，1 个测试通过；使用已有 `multilingual-e5-small` 缓存，未下载远程模型 |
 | TypeScript | 6 个 workspace 项目类型检查通过 |
 | `git diff --check` | 通过，无空白错误 |
+
+## Cleanup worker 复核
+
+- 删除流程创建的 `cleanup` job 现在由 worker 显式消费：上传版本仅删除其精确原始 Storage 路径，网页版本不访问 Storage，二者均以无后继阶段完成 job。
+- 回归测试覆盖 cleanup claim DTO、原始对象精确删除、网页版本无 Storage 删除；它们包含在上述 `processing-worker` 单元测试结果中。
 
 ## 固定处理夹具
 

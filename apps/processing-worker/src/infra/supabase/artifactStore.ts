@@ -80,6 +80,13 @@ export function createOriginalStore(client: StorageBoundary): OriginalStore {
       } catch {
         throw artifactFailure();
       }
+    },
+    async remove(storagePath, signal) {
+      assertStoragePath(storagePath);
+      signal.throwIfAborted();
+      const result = await bucket.remove([storagePath]);
+      if (result.error) throw artifactFailure();
+      signal.throwIfAborted();
     }
   };
 }

@@ -88,7 +88,8 @@ function createFake(options: {
       extract: async () => undefined,
       chunk: async () => undefined,
       embed: async () => undefined,
-      finalize: async () => undefined
+      finalize: async () => undefined,
+      cleanup: async () => undefined
     },
     clock,
     logger: {
