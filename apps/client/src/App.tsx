@@ -2,6 +2,12 @@ import { AuthCard } from './components/AuthCard';
 import { MainShell } from './components/MainShell';
 import { defaultAuthService, type AuthService } from './auth/authService';
 import { useAuthSession } from './auth/useAuthSession';
+import { defaultFileService, type FileService } from './files/fileService';
+import { defaultSearchService, type SearchService } from './search/searchService';
+import {
+  defaultUploadService,
+  type UploadService
+} from './uploads/uploadService';
 import {
   defaultWorkspaceService,
   type WorkspaceService
@@ -10,13 +16,19 @@ import './App.css';
 
 interface AppProps {
   authService?: AuthService;
+  fileService?: FileService;
   forceAuthPage?: boolean;
+  searchService?: SearchService;
+  uploadService?: UploadService;
   workspaceService?: WorkspaceService;
 }
 
 export default function App({
   authService = defaultAuthService,
+  fileService = defaultFileService,
   forceAuthPage = false,
+  searchService = defaultSearchService,
+  uploadService = defaultUploadService,
   workspaceService = defaultWorkspaceService
 }: AppProps) {
   const { error, isLoading, session } = useAuthSession(authService);
@@ -55,7 +67,10 @@ export default function App({
   return (
     <MainShell
       email={session.user.email ?? '当前账号'}
+      fileService={fileService}
       onSignOutCurrentDevice={authService.signOutCurrentDevice}
+      searchService={searchService}
+      uploadService={uploadService}
       workspaceService={workspaceService}
     />
   );

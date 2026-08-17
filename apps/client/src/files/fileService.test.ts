@@ -1,0 +1,149 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getSupabaseBrowserClient } from '../lib/supabaseClient';
+import {
+  defaultFileService,
+  formatFileSize,
+  formatFileStatus,
+  summarizeFileStatuses,
+  type FileSummary
+} from './fileService';
+
+vi.mock('../lib/supabaseClient', () => ({
+  getSupabaseBrowserClient: vi.fn()
+}));
+
+beforeEach(() => {
+  vi.mocked(getSupabaseBrowserClient).mockReset();
+});
+
+describe('fileService formatters', () => {
+  it('maps file version statuses to Chinese labels', () => {
+    expect(formatFileStatus('awaiting_upload')).toBe('等待上传');
+    expect(formatFileStatus('pending_processing')).toBe('等待处理');
+    expect(formatFileStatus('processing')).toBe('处理中');
+    expect(formatFileStatus('searchable')).toBe('可搜索');
+    expect(formatFileStatus('partially_searchable')).toBe('部分可搜索');
+    expect(formatFileStatus('failed')).toBe('处理失败');
+    expect(formatFileStatus(null)).toBe('未知状态');
+  });
+
+  it('formats file sizes for list display', () => {
+    expect(formatFileSize(null)).toBe('大小未知');
+    expect(formatFileSize(512)).toBe('512 B');
+    expect(formatFileSize(1536)).toBe('1.5 KB');
+    expect(formatFileSize(2 * 1024 * 1024)).toBe('2.0 MB');
+  });
+
+  it('summarizes file processing statuses for the workspace status bar', () => {
+    const files: FileSummary[] = [
+      fileWithStatus('awaiting_upload'),
+      fileWithStatus('processing'),
+      fileWithStatus('searchable'),
+      fileWithStatus('partially_searchable'),
+      fileWithStatus('failed'),
+      fileWithStatus(null)
+    ];
+
+    expect(summarizeFileStatuses(files)).toEqual({
+      failed: 1,
+      processing: 2,
+      searchable: 2,
+      total: 6,
+      unknown: 1
+    });
+  });
+});
+
+describe('defaultFileService contract', () => {
+  it('loads current workspace files and maps the current version relation', async () => {
+    const query = {
+      eq: vi.fn(),
+      is: vi.fn(),
+      order: vi.fn(),
+      select: vi.fn()
+    };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.is.mockReturnValue(query);
+    query.order.mockResolvedValue({
+      data: [
+        {
+          current_version: [
+            {
+              id: 'version-a',
+              mime_type: 'application/pdf',
+              size_bytes: 1536,
+              status: 'searchable'
+            }
+          ],
+          display_name: '产品方案.pdf',
+          id: 'file-a',
+          updated_at: '2026-08-17T06:00:00.000Z'
+        }
+      ],
+      error: null
+    });
+    const from = vi.fn(() => query);
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue({
+      from
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    await expect(defaultFileService.listFiles('workspace-a')).resolves.toEqual([
+      {
+        currentVersion: {
+          id: 'version-a',
+          mimeType: 'application/pdf',
+          sizeBytes: 1536,
+          status: 'searchable'
+        },
+        displayName: '产品方案.pdf',
+        id: 'file-a',
+        updatedAt: '2026-08-17T06:00:00.000Z'
+      }
+    ]);
+    expect(from).toHaveBeenCalledWith('files');
+    expect(query.eq).toHaveBeenCalledWith('workspace_id', 'workspace-a');
+    expect(query.is).toHaveBeenCalledWith('deleted_at', null);
+    expect(query.order).toHaveBeenCalledWith('updated_at', { ascending: false });
+  });
+
+  it('calls the soft delete RPC for a file', async () => {
+    const rpc = vi.fn(async () => ({ data: null, error: null }));
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue({
+      rpc
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    await expect(defaultFileService.softDeleteFile('file-a')).resolves.toBeUndefined();
+    expect(rpc).toHaveBeenCalledWith('soft_delete_file', {
+      p_file_id: 'file-a'
+    });
+  });
+
+  it('calls the retry RPC for a failed file version', async () => {
+    const rpc = vi.fn(async () => ({ data: null, error: null }));
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue({
+      rpc
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    await expect(defaultFileService.retryFileVersion('version-a')).resolves.toBeUndefined();
+    expect(rpc).toHaveBeenCalledWith('retry_file_version', {
+      p_version_id: 'version-a'
+    });
+  });
+});
+
+function fileWithStatus(
+  status: NonNullable<FileSummary['currentVersion']>['status']
+): FileSummary {
+  return {
+    currentVersion: {
+      id: `version-${status ?? 'unknown'}`,
+      mimeType: 'application/pdf',
+      sizeBytes: 12,
+      status
+    },
+    displayName: `${status ?? 'unknown'}.pdf`,
+    id: `file-${status ?? 'unknown'}`,
+    updatedAt: '2026-08-17T06:00:00.000Z'
+  };
+}

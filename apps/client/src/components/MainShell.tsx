@@ -1,87 +1,94 @@
-import { WorkspacePanel } from './WorkspacePanel';
+import { useState } from 'react';
+import { AppSidebar } from './AppSidebar';
+import { WorkspaceDashboard } from './WorkspaceDashboard';
+import { useFiles } from '../files/useFiles';
 import { useWorkspaces } from '../workspaces/useWorkspaces';
+import type { FileService } from '../files/fileService';
+import type { FileSummary } from '../files/fileService';
+import type { SearchService } from '../search/searchService';
+import type { UploadService } from '../uploads/uploadService';
 import type { WorkspaceService } from '../workspaces/workspaceService';
 
 interface MainShellProps {
   email: string;
+  fileService: FileService;
   onSignOutCurrentDevice: () => Promise<void>;
+  searchService: SearchService;
+  uploadService: UploadService;
   workspaceService: WorkspaceService;
+}
+
+function safeMessage(error: unknown) {
+  return error instanceof Error ? error.message : '文件操作失败';
 }
 
 export function MainShell({
   email,
+  fileService,
   onSignOutCurrentDevice,
+  searchService,
+  uploadService,
   workspaceService
 }: MainShellProps) {
+  const [fileActionError, setFileActionError] = useState<string | null>(null);
   const workspaceState = useWorkspaces(workspaceService);
+  const filesState = useFiles(fileService, workspaceState.currentWorkspace?.id ?? null);
+
+  async function deleteFile(file: FileSummary) {
+    if (!window.confirm(`确定删除“${file.displayName}”吗？`)) {
+      return;
+    }
+
+    setFileActionError(null);
+    try {
+      await fileService.softDeleteFile(file.id);
+      await filesState.refreshFiles();
+    } catch (caughtError) {
+      setFileActionError(`删除文件失败：${safeMessage(caughtError)}。请稍后重试。`);
+    }
+  }
+
+  async function retryFile(file: FileSummary) {
+    if (!file.currentVersion?.id) {
+      return;
+    }
+
+    setFileActionError(null);
+    try {
+      await fileService.retryFileVersion(file.currentVersion.id);
+      await filesState.refreshFiles();
+    } catch (caughtError) {
+      setFileActionError(`重新处理失败：${safeMessage(caughtError)}。请稍后重试。`);
+    }
+  }
 
   return (
     <main className="shell">
       <div className="app-frame">
-        <aside className="sidebar" aria-label="应用侧边栏">
-          <div className="sidebar__brand">
-            <div className="app-icon" aria-hidden="true">
-              K
-            </div>
-            <div>
-              <p className="eyebrow">Knowledge Base</p>
-              <h1>知识库</h1>
-            </div>
-          </div>
+        <AppSidebar
+          currentWorkspace={workspaceState.currentWorkspace}
+          email={email}
+          error={workspaceState.error}
+          isCreatingWorkspace={workspaceState.isCreating}
+          isLoadingWorkspaces={workspaceState.isLoading}
+          onCreateWorkspace={workspaceState.createWorkspace}
+          onSelectWorkspace={workspaceState.selectWorkspace}
+          onSignOutCurrentDevice={onSignOutCurrentDevice}
+          workspaces={workspaceState.workspaces}
+        />
 
-          <div className="account-card">
-            <span className="account-card__label">当前账号</span>
-            <span className="account-card__email">{email}</span>
-          </div>
-
-          <WorkspacePanel
-            currentWorkspace={workspaceState.currentWorkspace}
-            error={workspaceState.error}
-            isCreating={workspaceState.isCreating}
-            isLoading={workspaceState.isLoading}
-            onCreateWorkspace={workspaceState.createWorkspace}
-            onSelectWorkspace={workspaceState.selectWorkspace}
-            workspaces={workspaceState.workspaces}
-          />
-
-          <button
-            className="button button--ghost"
-            onClick={onSignOutCurrentDevice}
-            type="button"
-          >
-            退出当前设备
-          </button>
-        </aside>
-
-        <section className="content-pane">
-          <header className="content-header">
-            <div>
-              <p className="eyebrow">Workspace</p>
-              <h2>
-                {workspaceState.currentWorkspace
-                  ? workspaceState.currentWorkspace.name
-                  : '请选择团队'}
-              </h2>
-            </div>
-            {workspaceState.currentWorkspace ? (
-              <p className="workspace-current">
-                当前团队：{workspaceState.currentWorkspace.name}
-              </p>
-            ) : null}
-          </header>
-
-          <section className="empty-state">
-            <div className="empty-state__icon" aria-hidden="true">
-              ↑
-            </div>
-            <h2>
-              {workspaceState.currentWorkspace
-                ? '已选择团队，可以继续接入上传资料'
-                : '请先创建或选择团队'}
-            </h2>
-            <p>上传、搜索和同步能力将在后续 Phase 3 子任务中接入。</p>
-          </section>
-        </section>
+        <WorkspaceDashboard
+          currentWorkspace={workspaceState.currentWorkspace}
+          fileError={filesState.error ?? fileActionError}
+          files={filesState.files}
+          isLoadingFiles={filesState.isLoading}
+          lastRefreshedAt={filesState.lastRefreshedAt}
+          onDeleteFile={deleteFile}
+          onRefreshFiles={filesState.refreshFiles}
+          onRetryFile={retryFile}
+          searchService={searchService}
+          uploadService={uploadService}
+        />
       </div>
     </main>
   );

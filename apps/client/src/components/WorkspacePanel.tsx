@@ -1,4 +1,6 @@
 import { FormEvent, useState } from 'react';
+import { Button } from './ui/Button';
+import { TextInput } from './ui/TextInput';
 import type { WorkspaceSummary } from '../workspaces/workspaceService';
 
 interface WorkspacePanelProps {
@@ -52,7 +54,7 @@ export function WorkspacePanel({
       {workspaces.length > 0 ? (
         <div className="workspace-list" aria-label="团队列表">
           {workspaces.map((workspace) => (
-            <button
+            <Button
               className={
                 workspace.id === currentWorkspace?.id
                   ? 'workspace-item workspace-item--active'
@@ -60,10 +62,10 @@ export function WorkspacePanel({
               }
               key={workspace.id}
               onClick={() => onSelectWorkspace(workspace.id)}
-              type="button"
+              variant="nav"
             >
               {workspace.name}
-            </button>
+            </Button>
           ))}
         </div>
       ) : (
@@ -75,16 +77,16 @@ export function WorkspacePanel({
       <form className="workspace-create" onSubmit={handleCreateWorkspace}>
         <label className="field">
           <span>团队名称</span>
-          <input
+          <TextInput
             onChange={(event) => setWorkspaceName(event.target.value)}
             placeholder="例如：产品知识库"
             type="text"
             value={workspaceName}
           />
         </label>
-        <button className="button button--primary" disabled={isCreating}>
+        <Button disabled={isCreating} type="submit" variant="primary">
           创建团队
-        </button>
+        </Button>
       </form>
     </section>
   );
