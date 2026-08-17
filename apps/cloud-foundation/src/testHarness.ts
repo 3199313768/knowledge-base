@@ -81,22 +81,37 @@ export function createCloudHarness(): CloudHarness {
       actorSequence += 1;
       const safeLabel = label.toLowerCase().replace(/[^a-z0-9-]/g, '-');
       const email = `kb-${runId}-${actorSequence}-${safeLabel}@example.invalid`;
-      const { data: link, error: linkError } =
-        await admin.auth.admin.generateLink({ type: 'magiclink', email });
-      if (linkError) throw linkError;
-      if (!link.user) throw new Error('Magic-link generation returned no user');
-      userIds.add(link.user.id);
+      const password = `${runId}-${actorSequence}-${safeLabel}-Pw1!`;
+      const { data: createdUser, error: createError } =
+        await admin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true
+        });
+      if (createError) throw createError;
+      if (!createdUser.user) {
+        throw new Error('User creation returned no user');
+      }
+      userIds.add(createdUser.user.id);
       const client = createClient(env.url, env.anonKey, {
         auth: { persistSession: false, autoRefreshToken: false }
       });
-      const { data: session, error: verifyError } = await client.auth.verifyOtp({
-        token_hash: link.properties.hashed_token,
-        type: 'magiclink'
-      });
-      if (verifyError || !session.user) {
-        throw verifyError ?? new Error('Magic-link exchange returned no user');
+      const { data: session, error: signInError } =
+        await client.auth.signInWithPassword({
+          email,
+          password
+        });
+      if (signInError || !session.user) {
+        throw signInError ?? new Error('Password sign-in returned no user');
       }
-      return { userId: session.user.id, email, client };
+      if (session.user.id !== createdUser.user.id) {
+        throw new Error('Signed-in user did not match created user');
+      }
+      return {
+        userId: session.user.id,
+        email,
+        client
+      };
     },
     trackWorkspace(id) {
       workspaceIds.add(id);

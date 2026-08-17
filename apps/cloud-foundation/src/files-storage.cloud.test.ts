@@ -21,6 +21,21 @@ interface PreparedWebImport {
   storage_path: null;
 }
 
+type ProcessingStage =
+  | 'validate'
+  | 'extract'
+  | 'chunk'
+  | 'embed'
+  | 'finalize';
+
+interface ClaimedJob {
+  job_id: string;
+  version_id: string;
+  stage: ProcessingStage;
+}
+
+const PROCESSING_LEASE_SECONDS = 120;
+
 function checksum(): string {
   return `sha256:${randomUUID().replaceAll('-', '').padEnd(64, '0')}`;
 }
@@ -39,6 +54,79 @@ function firstRow<T>(
     if (typeof versionId === 'string') harness.trackFileVersion(versionId);
   }
   return row;
+}
+
+function processingWorkerId(versionId: string): string {
+  return `phase1-cloud-${versionId}`;
+}
+
+function nextProcessingStage(
+  stage: Exclude<ProcessingStage, 'finalize'>
+): ProcessingStage {
+  const nextStages: Record<Exclude<ProcessingStage, 'finalize'>, ProcessingStage> =
+    {
+      validate: 'extract',
+      extract: 'chunk',
+      chunk: 'embed',
+      embed: 'finalize'
+    };
+  return nextStages[stage];
+}
+
+async function completeRunningJobAsService(
+  admin: CloudHarness['admin'],
+  versionId: string
+): Promise<string> {
+  const { data: initialJob, error: jobError } = await admin
+    .from('processing_jobs')
+    .select('id, version_id, stage')
+    .eq('version_id', versionId)
+    .eq('status', 'running')
+    .single();
+  if (jobError) throw jobError;
+
+  let runningJob = initialJob as unknown as ClaimedJob;
+  while (runningJob.stage !== 'finalize') {
+    const nextStage = nextProcessingStage(runningJob.stage);
+    const { error: completionError } = await admin.rpc(
+      'complete_processing_stage',
+      {
+        p_job_id: runningJob.job_id,
+        p_worker_id: processingWorkerId(versionId),
+        p_next_stage: nextStage
+      }
+    );
+    if (completionError) {
+      throw new Error(
+        `complete_processing_stage(${runningJob.stage} -> ${nextStage}): ${completionError.message}`
+      );
+    }
+
+    const { data: claimData, error: claimError } = await admin.rpc(
+      'claim_processing_job',
+      {
+        p_worker_id: processingWorkerId(versionId),
+        p_lease_seconds: PROCESSING_LEASE_SECONDS
+      }
+    );
+    if (claimError) throw claimError;
+    const claimed = firstRow(claimData) as ClaimedJob | undefined;
+    if (!claimed || claimed.version_id !== versionId) {
+      throw new Error('successor processing job was not claimed');
+    }
+    runningJob = claimed;
+  }
+
+  const { error } = await admin.rpc('finalize_processing_version', {
+    p_job_id: runningJob.job_id,
+    p_worker_id: processingWorkerId(versionId),
+    p_status: 'searchable',
+    p_error_code: null
+  });
+  if (error) {
+    throw new Error(`finalize_processing_version: ${error.message}`);
+  }
+  return initialJob.id as string;
 }
 
 async function addMember(
@@ -226,16 +314,6 @@ describe('private file Storage contracts', () => {
         expect(directWriteError).not.toBeNull();
       }
 
-      const { data: claimedData, error: claimError } =
-        await harness.admin.rpc('claim_processing_job');
-      if (claimError) throw claimError;
-      const claimed = firstRow(claimedData) as
-        | { job_id: string; version_id: string }
-        | undefined;
-      expect(claimed?.version_id).toBe(preparedRow!.version_id);
-      if (!claimed?.job_id) {
-        throw new Error('claim_processing_job returned no job ID');
-      }
       const { error: chunkFixtureError } = await harness.admin
         .from('content_chunks')
         .insert({
@@ -243,26 +321,9 @@ describe('private file Storage contracts', () => {
           content: 'workspace-a-search-fixture',
           source_location: { page: 1 },
           embedding: Array.from({ length: 384 }, () => 0)
-        });
+      });
       if (chunkFixtureError) throw chunkFixtureError;
-      const { error: completeFixtureError } = await harness.admin.rpc(
-        'complete_processing_job',
-        {
-          p_job_id: claimed.job_id,
-          p_succeeded: true,
-          p_error_code: null
-        }
-      );
-      if (completeFixtureError) throw completeFixtureError;
-      const { error: finalizeFixtureError } = await harness.admin.rpc(
-        'finalize_file_version',
-        {
-          p_version_id: preparedRow!.version_id,
-          p_status: 'searchable',
-          p_error_code: null
-        }
-      );
-      if (finalizeFixtureError) throw finalizeFixtureError;
+      await completeRunningJobAsService(harness.admin, preparedRow!.version_id!);
 
       for (const actor of [ownerA, memberA]) {
         const { data: files, error: filesError } = await actor.client
@@ -697,16 +758,6 @@ describe('private file Storage contracts', () => {
         { p_version_id: first.version_id }
       );
       if (markCompleteError) throw markCompleteError;
-      const { data: claimedData, error: claimError } =
-        await harness.admin.rpc('claim_processing_job');
-      if (claimError) throw claimError;
-      const claimed = Array.isArray(claimedData)
-        ? claimedData[0]
-        : claimedData;
-      expect(claimed?.version_id).toBe(first.version_id);
-      if (!claimed?.job_id) {
-        throw new Error('claim_processing_job returned no job ID');
-      }
       const { error: chunkFixtureError } = await harness.admin
         .from('content_chunks')
         .insert({
@@ -714,26 +765,9 @@ describe('private file Storage contracts', () => {
           content: 'synthetic searchable fixture',
           source_location: { page: 1 },
           embedding: Array.from({ length: 384 }, () => 0)
-        });
+      });
       if (chunkFixtureError) throw chunkFixtureError;
-      const { error: completeFixtureError } = await harness.admin.rpc(
-        'complete_processing_job',
-        {
-          p_job_id: claimed.job_id,
-          p_succeeded: true,
-          p_error_code: null
-        }
-      );
-      if (completeFixtureError) throw completeFixtureError;
-      const { error: finalizeError } = await harness.admin.rpc(
-        'finalize_file_version',
-        {
-          p_version_id: first.version_id,
-          p_status: 'searchable',
-          p_error_code: null
-        }
-      );
-      if (finalizeError) throw finalizeError;
+      await completeRunningJobAsService(harness.admin, first.version_id!);
 
       const { data: versionDuplicateData, error: versionDuplicateError } =
         await member.client.rpc('prepare_file_version_upload', {

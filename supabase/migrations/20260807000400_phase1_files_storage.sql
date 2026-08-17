@@ -726,7 +726,6 @@ begin
 end;
 $$;
 
-alter table storage.objects enable row level security;
 revoke update, delete on storage.objects from public, anon, authenticated;
 
 create policy documents_insert_prepared_member on storage.objects

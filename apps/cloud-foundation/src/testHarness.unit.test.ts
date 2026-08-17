@@ -36,10 +36,9 @@ function configureClients() {
 
   state.admin.auth = {
     admin: {
-      generateLink: vi.fn(async () => ({
+      createUser: vi.fn(async () => ({
         data: {
-          user: { id: 'generated-user' },
-          properties: { hashed_token: 'hashed-token' }
+          user: { id: 'generated-user' }
         },
         error: null
       })),
@@ -83,8 +82,8 @@ function configureClients() {
     })
   }));
   state.actor.auth = {
-    verifyOtp: vi.fn(async () => ({
-      data: { user: { id: 'session-user' } },
+    signInWithPassword: vi.fn(async () => ({
+      data: { user: { id: 'generated-user' } },
       error: null
     }))
   };
@@ -98,17 +97,17 @@ beforeEach(() => {
   configureClients();
 });
 
-it('cleans up a generated user when its magic-link exchange fails', async () => {
+it('cleans up a generated user when password sign-in fails', async () => {
   const harness = harnessModule.createCloudHarness();
   state.actor.auth = {
-    verifyOtp: vi.fn(async () => ({
+    signInWithPassword: vi.fn(async () => ({
       data: { user: null },
-      error: new Error('magic-link exchange failed')
+      error: new Error('password sign-in failed')
     }))
   };
 
   await expect(harness.createActor('failed-exchange')).rejects.toThrow(
-    'magic-link exchange failed'
+    'password sign-in failed'
   );
   await expect(harness.cleanup()).resolves.toBeUndefined();
 
@@ -120,6 +119,22 @@ it('cleans up a generated user when its magic-link exchange fails', async () => 
     'user:generated-user'
   ]);
   expect(state.deletedUsers).toEqual(['generated-user']);
+});
+
+it('logs in generated auth users with password sign-in', async () => {
+  const harness = harnessModule.createCloudHarness();
+
+  await expect(harness.createActor('auth')).resolves.toMatchObject({
+    userId: 'generated-user'
+  });
+
+  const auth = state.actor.auth as {
+    signInWithPassword: ReturnType<typeof vi.fn>;
+  };
+  expect(auth.signInWithPassword).toHaveBeenCalledWith({
+    email: expect.stringContaining('@example.invalid'),
+    password: expect.stringContaining('-Pw1!')
+  });
 });
 
 it('attempts every cleanup and aggregates its failures', async () => {

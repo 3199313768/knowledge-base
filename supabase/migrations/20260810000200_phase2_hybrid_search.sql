@@ -80,7 +80,7 @@ begin
            case when p_filters ? 'updatedFrom' then (p_filters ->> 'updatedFrom')::timestamptz end,
            case when p_filters ? 'updatedTo' then (p_filters ->> 'updatedTo')::timestamptz end
     into v_file_types, v_uploader_ids, v_updated_from, v_updated_to;
-  exception when invalid_text_representation or datetime_field_overflow or datetime_value_out_of_range then
+  exception when invalid_text_representation or datetime_field_overflow then
     raise exception 'search filters contain invalid values';
   end;
   if v_updated_from is not null and v_updated_to is not null and v_updated_from > v_updated_to then
