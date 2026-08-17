@@ -1,4 +1,4 @@
-import { access, readFile, writeFile } from 'node:fs/promises';
+import { access, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
 import { expect, it } from 'vitest';

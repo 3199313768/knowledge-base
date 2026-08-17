@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
 
 import type { ArtifactKind } from '../../artifacts/codec';
 import { ProcessingFailure } from '../../core/errors';
@@ -15,7 +15,10 @@ interface StorageBucket {
     bytes: Uint8Array,
     options: Readonly<Record<string, unknown>>
   ): PromiseLike<StorageResult<unknown>>;
-  download(path: string): PromiseLike<StorageResult<Blob>>;
+  download(
+    path: string,
+    options?: Readonly<Record<string, unknown>>
+  ): PromiseLike<StorageResult<Blob>>;
   remove(paths: string[]): PromiseLike<StorageResult<unknown>>;
 }
 
@@ -37,7 +40,7 @@ export function createArtifactStore(client: StorageBoundary): ArtifactStore {
     async read(workspaceId, versionId, kind, signal) {
       const path = artifactPath(workspaceId, versionId, kind);
       signal.throwIfAborted();
-      const result = await bucket.download(path);
+      const result = await bucket.download(path, { signal });
       if (result.error || !(result.data instanceof Blob)) throw artifactFailure();
       const bytes = new Uint8Array(await result.data.arrayBuffer());
       signal.throwIfAborted();
@@ -71,13 +74,12 @@ export function createOriginalStore(client: StorageBoundary): OriginalStore {
     async download(original, destinationPath, signal) {
       assertStoragePath(original.storagePath);
       signal.throwIfAborted();
-      const result = await bucket.download(original.storagePath);
+      const result = await bucket.download(original.storagePath, { signal });
       if (result.error || !(result.data instanceof Blob)) throw downloadFailure();
-      const bytes = new Uint8Array(await result.data.arrayBuffer());
-      signal.throwIfAborted();
       try {
-        await writeFile(destinationPath, bytes, { flag: 'wx' });
-      } catch {
+        await writeBlobToFile(result.data, destinationPath, original.sizeBytes, signal);
+      } catch (error) {
+        if (error instanceof ProcessingFailure) throw error;
         throw artifactFailure();
       }
     },
@@ -114,6 +116,36 @@ function assertStoragePath(value: string): void {
 
 function assertUuid(value: string): void {
   if (!uuidPattern.test(value)) throw artifactFailure();
+}
+
+async function writeBlobToFile(
+  blob: Blob,
+  destinationPath: string,
+  maxBytes: number,
+  signal: AbortSignal
+): Promise<void> {
+  signal.throwIfAborted();
+  let handle;
+  let written = 0;
+  try {
+    handle = await open(destinationPath, 'wx');
+    for await (const chunk of blob.stream()) {
+      signal.throwIfAborted();
+      const bytes = asUint8Array(chunk);
+      written += bytes.byteLength;
+      if (written > maxBytes) throw downloadFailure();
+      await handle.write(bytes);
+    }
+    signal.throwIfAborted();
+  } finally {
+    await handle?.close();
+  }
+}
+
+function asUint8Array(chunk: unknown): Uint8Array {
+  if (chunk instanceof Uint8Array) return chunk;
+  if (chunk instanceof ArrayBuffer) return new Uint8Array(chunk);
+  throw artifactFailure();
 }
 
 function artifactFailure(): ProcessingFailure {

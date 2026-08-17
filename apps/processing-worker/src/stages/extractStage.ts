@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -13,6 +12,7 @@ import type {
   StageHandler
 } from '../core/ports';
 import { validateOriginalFile } from '../validation/fileValidation';
+import { sha256File } from '../validation/fileHash';
 
 export function createExtractStage(dependencies: {
   repository: ProcessingRepository;
@@ -37,9 +37,10 @@ export function createExtractStage(dependencies: {
         declaredMime: job.original.mimeType,
         expectedSizeBytes: job.original.sizeBytes
       });
-      const actualChecksum = `sha256:${createHash('sha256')
-        .update(await readFile(filePath))
-        .digest('hex')}`;
+      const actualChecksum = `sha256:${await sha256File(
+        filePath,
+        context.signal
+      )}`;
       if (actualChecksum !== job.original.checksum) {
         throw new ProcessingFailure(
           'corrupt_file',

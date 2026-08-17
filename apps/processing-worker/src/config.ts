@@ -1,5 +1,7 @@
-import { stat } from 'node:fs/promises';
-import path from 'node:path';
+import {
+  assertPinnedModelCache,
+  type PinnedModelCacheManifest
+} from '@knowledge-base/search-core';
 
 export interface WorkerConfig {
   supabaseUrl: string;
@@ -14,15 +16,13 @@ export interface WorkerConfig {
   jobTimeoutMs: number;
 }
 
-const pinnedModelFiles = [
-  'Xenova/multilingual-e5-small/config.json',
-  'Xenova/multilingual-e5-small/tokenizer.json',
-  'Xenova/multilingual-e5-small/tokenizer_config.json',
-  'Xenova/multilingual-e5-small/onnx/model.onnx'
-] as const;
+export interface WorkerConfigOptions {
+  modelCacheManifest?: PinnedModelCacheManifest;
+}
 
 export async function loadWorkerConfig(
-  environment: Readonly<Record<string, string | undefined>>
+  environment: Readonly<Record<string, string | undefined>>,
+  options: WorkerConfigOptions = {}
 ): Promise<WorkerConfig> {
   const supabaseUrl = required(environment, 'SUPABASE_URL');
   const serviceRoleKey = required(environment, 'SUPABASE_SERVICE_ROLE_KEY');
@@ -74,7 +74,7 @@ export async function loadWorkerConfig(
     throw configError('PROCESSING_TERMINAL_ARTIFACT_GRACE_SECONDS');
   }
 
-  await assertPinnedModelCache(modelCache);
+  await assertWorkerModelCache(modelCache, options.modelCacheManifest);
   return {
     supabaseUrl,
     serviceRoleKey,
@@ -121,12 +121,12 @@ function validateUrl(value: string): void {
   }
 }
 
-async function assertPinnedModelCache(cacheRoot: string): Promise<void> {
+async function assertWorkerModelCache(
+  cacheRoot: string,
+  manifest?: PinnedModelCacheManifest
+): Promise<void> {
   try {
-    for (const relativePath of pinnedModelFiles) {
-      const file = await stat(path.join(cacheRoot, relativePath));
-      if (!file.isFile() || file.size === 0) throw configError('PROCESSING_MODEL_CACHE');
-    }
+    await assertPinnedModelCache(cacheRoot, manifest);
   } catch {
     throw configError('PROCESSING_MODEL_CACHE');
   }

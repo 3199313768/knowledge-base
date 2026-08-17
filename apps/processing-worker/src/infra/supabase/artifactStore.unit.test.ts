@@ -1,10 +1,24 @@
-import { expect, it } from 'vitest';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+import { afterEach, expect, it, vi } from 'vitest';
 
 import { ProcessingFailure } from '../../core/errors';
 import { createArtifactStore, createOriginalStore } from './artifactStore';
 
 const workspaceId = '40000000-0000-4000-8000-000000000004';
 const versionId = '20000000-0000-4000-8000-000000000002';
+const temporaryDirectories: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    temporaryDirectories.splice(0).map((directory) =>
+      rm(directory, { recursive: true, force: true })
+    )
+  );
+  vi.restoreAllMocks();
+});
 
 function fakeClient() {
   const calls: Array<{ operation: string; path: unknown; options?: unknown }> = [];
@@ -13,8 +27,8 @@ function fakeClient() {
       calls.push({ operation: 'upload', path, options });
       return { data: { path }, error: null, bytes };
     },
-    download: async (path: string) => {
-      calls.push({ operation: 'download', path });
+    download: async (path: string, options?: unknown) => {
+      calls.push({ operation: 'download', path, options });
       return { data: new Blob([Uint8Array.from([1, 2, 3])]), error: null };
     },
     remove: async (paths: string[]) => {
@@ -45,9 +59,47 @@ it('writes and reads the exact version-scoped gzip artifact path', async () => {
     },
     {
       operation: 'download',
-      path: `processing/${workspaceId}/${versionId}/chunks-v1.json.gz`
+      path: `processing/${workspaceId}/${versionId}/chunks-v1.json.gz`,
+      options: { signal }
     }
   ]);
+});
+
+it('streams an original download to disk and passes the abort signal to storage', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'original-store-'));
+  temporaryDirectories.push(directory);
+  const destination = path.join(directory, 'original.pdf');
+  const signal = new AbortController().signal;
+  const blob = new Blob([Uint8Array.from([1]), Uint8Array.from([2, 3])]);
+  const arrayBuffer = vi.spyOn(blob, 'arrayBuffer');
+  arrayBuffer.mockRejectedValue(new Error('must not buffer the full object'));
+  const calls: Array<{ path: string; options?: unknown }> = [];
+  const store = createOriginalStore({
+    storage: {
+      from: () => ({
+        upload: async () => ({ data: null, error: null }),
+        download: async (storagePath: string, options?: unknown) => {
+          calls.push({ path: storagePath, options });
+          return { data: blob, error: null };
+        },
+        remove: async () => ({ data: null, error: null })
+      })
+    }
+  });
+
+  await store.download({
+    storagePath: `${workspaceId}/${versionId}/source.pdf`,
+    mimeType: 'application/pdf',
+    checksum: `sha256:${'a'.repeat(64)}`,
+    sizeBytes: 3
+  }, destination, signal);
+
+  await expect(readFile(destination)).resolves.toEqual(Buffer.from([1, 2, 3]));
+  expect(arrayBuffer).not.toHaveBeenCalled();
+  expect(calls).toEqual([{
+    path: `${workspaceId}/${versionId}/source.pdf`,
+    options: { signal }
+  }]);
 });
 
 it('deletes only the two exact artifacts below a validated version prefix', async () => {

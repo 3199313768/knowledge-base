@@ -1,8 +1,8 @@
 # Phase 2 本地决策
 
 - 决策日期：2026-08-17（Asia/Shanghai）
-- 当前提交：`5ff634bd830197a0a684e4690a6b0df04cb73ac6`
-- 提交基准工作区：`main` 与 `origin/main` 对齐；当前有未提交的 cleanup worker 修复、对应单测和本记录更新。
+- 当前提交：`4d73eb8f894114ba212f84af00f78081401cb4db`
+- 提交基准工作区：`main` 与 `origin/main` 对齐；当前有未提交的 Phase 2 本地模型固定、Storage 取消/内存边界、对应单测和本记录更新。
 - 证据边界：只记录本地单元测试、缓存模型测试、TypeScript 检查和静态文件检查；没有连接 Supabase，也没有运行 pgTAP、迁移、真实 worker 或云端授权测试。
 
 ## 本地门禁
@@ -17,8 +17,8 @@ pnpm verify:phase-2-local
 
 | 层 | 结果 |
 |---|---|
-| workspace 单元测试 | 25 个测试文件，165 个测试通过 |
-| processing-worker | 13 个测试文件，119 个测试通过 |
+| workspace 单元测试 | 26 个测试文件，169 个测试通过 |
+| processing-worker | 14 个测试文件，123 个测试通过 |
 | search-core 离线模型 | 1 个测试文件，1 个测试通过；使用已有 `multilingual-e5-small` 缓存，未下载远程模型 |
 | TypeScript | 6 个 workspace 项目类型检查通过 |
 | `git diff --check` | 通过，无空白错误 |
@@ -27,6 +27,13 @@ pnpm verify:phase-2-local
 
 - 删除流程创建的 `cleanup` job 现在由 worker 显式消费：上传版本仅删除其精确原始 Storage 路径，网页版本不访问 Storage，二者均以无后继阶段完成 job。
 - 回归测试覆盖 cleanup claim DTO、原始对象精确删除、网页版本无 Storage 删除；它们包含在上述 `processing-worker` 单元测试结果中。
+
+## 模型与 Storage 本地复核
+
+- `multilingual-e5-small` 固定到 revision `761b726dd34fb83930e26aab4e9ac3899aa1fa78`，并以本地 manifest 校验 `config.json`、`tokenizer.json`、`tokenizer_config.json`、`onnx/model.onnx` 的 SHA-256；worker 启动前校验失败则拒绝配置。
+- Transformers.js 同时固定 `cache_dir`、`local_files_only: true`、`revision` 和 `env.localModelPath`；本地模型测试验证当前 Phase 0 缓存仍可离线加载。
+- 原始文件 Storage 下载改为流式写入目标临时文件，下载调用携带 `AbortSignal`，流写入前后检查取消，并按声明字节数上限 fail-closed。
+- 提取阶段 checksum 计算改为流式 SHA-256，避免对原始文件执行整文件 `readFile()`。
 
 ## 固定处理夹具
 
@@ -46,7 +53,7 @@ pnpm verify:phase-2-local
 
 ## 当前支持范围
 
-- 支持：原生文本 PDF、原生文本 DOCX；包含页码/段落/表格来源位置、确定性分块、384 维离线 E5 embedding、混合搜索本地排序核心。
+- 支持：原生文本 PDF、原生文本 DOCX；包含页码/段落/表格来源位置、确定性分块、固定 revision 与 SHA-256 的 384 维离线 E5 embedding、混合搜索本地排序核心。
 - 不支持：扫描件 OCR、网页、PPTX、XLSX、JPG/JPEG、PNG、HEIC、客户端 UI、真实 worker 部署、AI 问答和摘要。
 
 ## 尚未运行的证据层
