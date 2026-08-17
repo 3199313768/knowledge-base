@@ -1,0 +1,30 @@
+{
+  "name": "@knowledge-base/processing-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "@types/pdfkit": "^0.17.6",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
+    "pdfkit": "^0.19.1",
+    "tsx": "^4.23.5",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "yazl": "^3.3.1"
+  },
+  "dependencies": {
+    "@knowledge-base/contracts": "workspace:*",
+    "@knowledge-base/search-core": "workspace:*",
+    "@supabase/supabase-js": "^2.112.0",
+    "dotenv": "^17.4.2",
+    "pdfjs-dist": "^6.2.108",
+    "saxes": "^6.0.0",
+    "yauzl": "^3.4.0"
+  }
+}

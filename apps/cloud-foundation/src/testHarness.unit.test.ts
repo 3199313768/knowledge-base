@@ -52,7 +52,11 @@ function configureClients() {
   };
   state.admin.storage = {
     from: vi.fn(() => ({
-      remove: vi.fn(async ([path]: string[]) => {
+      remove: vi.fn(async (paths: string[]) => {
+        const path = paths[0];
+        if (path === undefined) {
+          throw new Error('storage path is required');
+        }
         state.cleanupOperations.push(`storage:${path}`);
         return { error: state.storageFailures.get(path) ?? null };
       })

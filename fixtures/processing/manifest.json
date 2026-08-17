@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "filename": "native-text.pdf",
+      "purpose": "Three pages of bilingual native PDF text, with an empty second page.",
+      "mime": "application/pdf",
+      "byteSize": 22619,
+      "sha256": "81113e9b943f943e82ac35b2f9a8b463dad397311028c21f1c1f91423601e235"
+    },
+    {
+      "filename": "empty.pdf",
+      "purpose": "A zero-byte PDF upload used to exercise empty-file validation.",
+      "mime": "application/pdf",
+      "byteSize": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "filename": "encrypted.pdf",
+      "purpose": "A password-protected PDF used to exercise encrypted-file handling.",
+      "mime": "application/pdf",
+      "byteSize": 1761,
+      "sha256": "88b81b58edd1e2919fbf888622c70d83d8b701f03b13b55fd34e498827baf0b1"
+    },
+    {
+      "filename": "corrupt.pdf",
+      "purpose": "Malformed bytes declared as a PDF.",
+      "mime": "application/pdf",
+      "byteSize": 17,
+      "sha256": "01fe40ee6cb264b8c4c350af2aa5599a81bc9068213a9d81a2a0152b9119c68d"
+    },
+    {
+      "filename": "paragraphs-and-table.docx",
+      "purpose": "DOCX with one heading, two paragraphs, and a three-row table.",
+      "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "byteSize": 1064,
+      "sha256": "7650c80fc6b32beba072db765e81000e8cd0064b6491808a0ab35a8a87f4d140"
+    },
+    {
+      "filename": "empty.docx",
+      "purpose": "Structurally valid DOCX with an empty document body.",
+      "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "byteSize": 930,
+      "sha256": "e4316e91d58c418e1dce0eabb3399e798925bdf9821923c7ef5b5b4ebcf6d42c"
+    },
+    {
+      "filename": "corrupt.docx",
+      "purpose": "Malformed bytes declared as a DOCX.",
+      "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "byteSize": 19,
+      "sha256": "3b6908c15ecb3d572c9011d39358a26dd11f65f2c7c71d4c68ac50bd181a666f"
+    },
+    {
+      "filename": "oversized-entry.docx",
+      "purpose": "DOCX ZIP with a compressed entry declaring more than 50 MB expanded.",
+      "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "byteSize": 1064,
+      "sha256": "6ad21f7716f07038e01523e7134a6875e0582a6ca2b0dc293aa93f341de8dcd4"
+    },
+    {
+      "filename": "pdf-named-as-docx.docx",
+      "purpose": "PDF content carrying a DOCX filename for byte-signature checks.",
+      "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "byteSize": 1529,
+      "sha256": "d2d1d71f51bd1e546b71a4acca5004eaa29e9264f6e5f238044370345e91d291"
+    }
+  ]
+}

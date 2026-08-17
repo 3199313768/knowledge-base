@@ -19,11 +19,15 @@ export interface SearchDocument {
   sourceType: string;
 }
 
+export type SearchSourceLocation =
+  | SourceLocation
+  | import('./processing').ProcessingSourceLocation;
+
 export interface SearchChunk {
   id: string;
   document: SearchDocument;
   content: string;
-  sourceLocation: SourceLocation;
+  sourceLocation: SearchSourceLocation;
 }
 
 export interface SearchQuery {
@@ -37,7 +41,14 @@ export interface SearchResult {
   fileName: string;
   score: number;
   snippet: string;
-  sourceLocation: SourceLocation;
+  sourceLocation: SearchSourceLocation;
+  snippets?: SearchSnippet[];
+}
+
+export interface SearchSnippet {
+  snippet: string;
+  sourceLocation: SearchSourceLocation;
+  score: number;
 }
 
 export interface EmbeddingProvider {

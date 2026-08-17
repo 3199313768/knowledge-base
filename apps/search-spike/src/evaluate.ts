@@ -63,7 +63,12 @@ async function readJson<T>(relativePath: string): Promise<T> {
 export async function evaluateSearch(): Promise<EvaluationReport> {
   const corpus = await readJson<CorpusItem[]>('fixtures/search/corpus.json');
   const queries = await readJson<QueryCase[]>('fixtures/search/queries.json');
-  const provider = await createMultilingualE5Provider();
+  const provider = await createMultilingualE5Provider({
+    cacheDir:
+      process.env.TRANSFORMERS_CACHE ??
+      path.join(repoRoot, 'validation/phase-0/model-cache'),
+    localFilesOnly: true
+  });
   const client = createClient(
     requiredEnv('SUPABASE_URL'),
     requiredEnv('SUPABASE_SERVICE_ROLE_KEY'),

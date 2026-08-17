@@ -1,29 +1,30 @@
 import { expect, it, vi } from 'vitest';
 
-const extractor = vi.fn(async (text: string) => ({
-  data: Float32Array.from([text.length])
-}));
-const pipeline = vi.fn(async () => extractor);
+const { createProvider, provider } = vi.hoisted(() => {
+  const provider = {
+    dimensions: 384 as const,
+    embedPassages: vi.fn(async () => []),
+    embedQuery: vi.fn(async () => [])
+  };
 
-vi.mock('@huggingface/transformers', () => ({
-  env: {},
-  pipeline
+  return {
+    createProvider: vi.fn(async () => provider),
+    provider
+  };
+});
+
+vi.mock('@knowledge-base/search-core', () => ({
+  createMultilingualE5Provider: createProvider
 }));
 
 import { createMultilingualE5Provider } from './embed';
 
-it('prefixes passages and queries before passing them to the model', async () => {
-  const provider = await createMultilingualE5Provider();
+it('preserves the shared provider compatibility import surface', async () => {
+  const options = {
+    cacheDir: '/synthetic/cache',
+    localFilesOnly: true
+  };
 
-  await provider.embedPassages(['报价方案']);
-  await provider.embedQuery('报价方案');
-
-  expect(extractor).toHaveBeenNthCalledWith(1, 'passage: 报价方案', {
-    pooling: 'mean',
-    normalize: true
-  });
-  expect(extractor).toHaveBeenNthCalledWith(2, 'query: 报价方案', {
-    pooling: 'mean',
-    normalize: true
-  });
+  await expect(createMultilingualE5Provider(options)).resolves.toBe(provider);
+  expect(createProvider).toHaveBeenCalledWith(options);
 });

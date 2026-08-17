@@ -116,6 +116,18 @@ Phase 0 的历史 `GO`、Recall@5 或 service-role spike 隔离结果都不代�
 
 Task 8 静态裁决见 `validation/phase-1/decision.md`：当前为 **NOT EVALUATED / NO-GO FOR RELEASE**。这是缺少空项目重建与动态门禁证据的发布阻断，不是静态源码失败结论；Phase 1 不标记完成，也不进入 Phase 2。
 
+## Phase 2 本地处理与混合搜索基础
+
+当前工作树包含 Phase 2 的首个本地可验证子项目：Node.js worker 支持原生文本 PDF/DOCX 的校验、提取、定位、确定性分块、离线 384 维 E5 embedding，以及普通 JWT/RLS 边界下的混合搜索 SQL 契约。OCR、网页、PPTX、XLSX、图片、客户端 UI、真实云端 worker 和真实问题集质量门禁不在本子项目范围内。
+
+只允许运行本地门禁：
+
+```bash
+pnpm verify:phase-2-local
+```
+
+该命令依次运行 workspace 单元测试、使用已有缓存且禁用远程下载的 E5 模型测试和 TypeScript 检查。Supabase migration、pgTAP、RLS/Storage、普通 JWT 隔离和真实 worker 运行均保持独立的 **UNRUN** 证据层，不能由本地门禁替代。Phase 1 仍为 `NOT EVALUATED / NO-GO FOR RELEASE`，Phase 2 本地通过也不代表可以发布。
+
 ## 快速开始
 
 ```bash

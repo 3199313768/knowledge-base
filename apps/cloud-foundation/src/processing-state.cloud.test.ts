@@ -1,3 +1,4 @@
+// UNRUN until a dedicated database target is separately authorized.
 import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
@@ -17,7 +18,33 @@ interface PreparedVersion {
 interface ClaimedJob {
   job_id: string;
   version_id: string;
+  stage: ProcessingStage;
   attempt: number;
+  checksum: string | null;
+  size_bytes: number | null;
+}
+
+type ProcessingStage =
+  | 'validate'
+  | 'extract'
+  | 'chunk'
+  | 'embed'
+  | 'finalize';
+
+const PROCESSING_LEASE_SECONDS = 120;
+
+function processingWorkerId(versionId: string): string {
+  return `phase1-cloud-${versionId}`;
+}
+
+function nextProcessingStage(stage: Exclude<ProcessingStage, 'finalize'>): ProcessingStage {
+  const nextStages: Record<Exclude<ProcessingStage, 'finalize'>, ProcessingStage> = {
+    validate: 'extract',
+    extract: 'chunk',
+    chunk: 'embed',
+    embed: 'finalize'
+  };
+  return nextStages[stage];
 }
 
 let trackActiveObject: ((path: string) => void) | undefined;
@@ -126,24 +153,66 @@ async function claimVersionAsService(
   admin: SupabaseClient,
   expectedVersionId: string
 ): Promise<void> {
-  const { data, error } = await admin.rpc('claim_processing_job');
+  const { data, error } = await admin.rpc('claim_processing_job', {
+    p_worker_id: processingWorkerId(expectedVersionId),
+    p_lease_seconds: PROCESSING_LEASE_SECONDS
+  });
   if (error) throw error;
   const claimed = firstRow(data) as ClaimedJob | undefined;
   expect(claimed?.version_id).toBe(expectedVersionId);
+  expect(claimed?.checksum).toMatch(/^sha256:[0-9a-f]{64}$/u);
+  expect(claimed?.size_bytes).toBeGreaterThan(0);
 }
 
-async function finalizeAsService(
+async function publishVersionAsService(
   admin: SupabaseClient,
   versionId: string,
-  status: 'searchable' | 'partially_searchable' | 'failed',
+  status: 'searchable' | 'partially_searchable',
   errorCode?: string
-): Promise<void> {
-  const { error } = await admin.rpc('finalize_file_version', {
-    p_version_id: versionId,
+): Promise<string> {
+  const { data: job, error: jobError } = await admin
+    .from('processing_jobs')
+    .select('id')
+    .eq('version_id', versionId)
+    .eq('stage', 'finalize')
+    .eq('status', 'running')
+    .single();
+  if (jobError) throw jobError;
+
+  if (status === 'partially_searchable') {
+    const { error: warningError } = await admin.rpc(
+      'record_processing_warning',
+      {
+        p_job_id: job.id,
+        p_worker_id: processingWorkerId(versionId),
+        p_code: errorCode ?? 'partial_processing',
+        p_source_location: null
+      }
+    );
+    if (warningError) throw warningError;
+  }
+
+  const { error } = await admin.rpc('finalize_processing_version', {
+    p_job_id: job.id,
+    p_worker_id: processingWorkerId(versionId),
     p_status: status,
     p_error_code: errorCode ?? null
   });
   if (error) throw error;
+  return job.id;
+}
+
+async function assertVersionFailedByStageFailure(
+  admin: SupabaseClient,
+  versionId: string
+): Promise<void> {
+  const { data, error } = await admin
+    .from('file_versions')
+    .select('status')
+    .eq('id', versionId)
+    .single();
+  if (error) throw error;
+  expect(data.status).toBe('failed');
 }
 
 async function currentVersion(
@@ -165,20 +234,54 @@ async function completeRunningJobAsService(
   succeeded: boolean,
   errorCode?: string
 ): Promise<string> {
-  const { data: job, error: jobError } = await admin
+  const { data: initialJob, error: jobError } = await admin
     .from('processing_jobs')
-    .select('id')
+    .select('id, stage')
     .eq('version_id', versionId)
     .eq('status', 'running')
     .single();
   if (jobError) throw jobError;
-  const { error } = await admin.rpc('complete_processing_job', {
-    p_job_id: job.id,
-    p_succeeded: succeeded,
-    p_error_code: errorCode ?? null
-  });
-  if (error) throw error;
-  return job.id;
+
+  if (!succeeded) {
+    const { error } = await admin.rpc('fail_processing_stage', {
+      p_job_id: initialJob.id,
+      p_worker_id: processingWorkerId(versionId),
+      p_error_code: errorCode ?? 'processing_failed',
+      p_permanent: true
+    });
+    if (error) throw error;
+    return initialJob.id;
+  }
+
+  let runningJob = initialJob as { id: string; stage: ProcessingStage };
+  while (runningJob.stage !== 'finalize') {
+    const nextStage = nextProcessingStage(runningJob.stage);
+    const { error: completionError } = await admin.rpc(
+      'complete_processing_stage',
+      {
+        p_job_id: runningJob.id,
+        p_worker_id: processingWorkerId(versionId),
+        p_next_stage: nextStage
+      }
+    );
+    if (completionError) throw completionError;
+
+    const { data: claimData, error: claimError } = await admin.rpc(
+      'claim_processing_job',
+      {
+        p_worker_id: processingWorkerId(versionId),
+        p_lease_seconds: PROCESSING_LEASE_SECONDS
+      }
+    );
+    if (claimError) throw claimError;
+    const claimed = firstRow(claimData) as ClaimedJob | undefined;
+    if (!claimed || claimed.version_id !== versionId) {
+      throw new Error('successor processing job was not claimed');
+    }
+    runningJob = { id: claimed.job_id, stage: claimed.stage };
+  }
+
+  return initialJob.id;
 }
 
 async function addMember(
@@ -221,8 +324,15 @@ async function insertChunk(
     .from('content_chunks')
     .insert({
       version_id: versionId,
+      chunk_index: 0,
       content,
-      source_location: { page: 1 },
+      source_location: {
+        schemaVersion: 1,
+        kind: 'page',
+        page: 1,
+        label: '第 1 页'
+      },
+      search_tokens: [],
       embedding: Array.from({ length: 384 }, () => 0)
     })
     .select('id')
@@ -248,7 +358,11 @@ describe('processing state, audit, and device contracts', () => {
         first.version_id,
         true
       );
-      await finalizeAsService(harness.admin, first.version_id, 'searchable');
+      await publishVersionAsService(
+        harness.admin,
+        first.version_id,
+        'searchable'
+      );
 
       const second = await createVersionUpdate(
         actor.client,
@@ -267,11 +381,9 @@ describe('processing state, audit, and device contracts', () => {
         false,
         'extract_failed'
       );
-      await finalizeAsService(
+      await assertVersionFailedByStageFailure(
         harness.admin,
-        second.version_id,
-        'failed',
-        'extract_failed'
+        second.version_id
       );
       expect(await currentVersion(actor.client, first.file_id)).toBe(
         first.version_id
@@ -293,10 +405,17 @@ describe('processing state, audit, and device contracts', () => {
         third.version_id,
         true
       );
+      const { data: thirdFinalizeJob } = await harness.admin
+        .from('processing_jobs')
+        .select('id')
+        .eq('version_id', third.version_id)
+        .eq('stage', 'finalize')
+        .single();
       const { error: missingPartialCodeError } = await harness.admin.rpc(
-        'finalize_file_version',
+        'finalize_processing_version',
         {
-          p_version_id: third.version_id,
+          p_job_id: thirdFinalizeJob?.id,
+          p_worker_id: processingWorkerId(third.version_id),
           p_status: 'partially_searchable',
           p_error_code: null
         }
@@ -304,7 +423,7 @@ describe('processing state, audit, and device contracts', () => {
       expect(missingPartialCodeError?.message).toContain(
         'requires an error code'
       );
-      await finalizeAsService(
+      await publishVersionAsService(
         harness.admin,
         third.version_id,
         'partially_searchable',
@@ -333,7 +452,7 @@ describe('processing state, audit, and device contracts', () => {
         fourth.version_id,
         true
       );
-      await finalizeAsService(
+      await publishVersionAsService(
         harness.admin,
         fourth.version_id,
         'searchable'
@@ -379,21 +498,26 @@ describe('processing state, audit, and device contracts', () => {
         'worker-private'
       );
       const { error: ordinaryClaimError } = await actor.client.rpc(
-        'claim_processing_job'
+        'claim_processing_job',
+        {
+          p_worker_id: 'forged-worker',
+          p_lease_seconds: PROCESSING_LEASE_SECONDS
+        }
       );
       expect(ordinaryClaimError).not.toBeNull();
       const { error: ordinaryCompleteError } = await actor.client.rpc(
-        'complete_processing_job',
+        'complete_processing_stage',
         {
           p_job_id: randomUUID(),
-          p_succeeded: true,
-          p_error_code: null
+          p_worker_id: 'forged-worker',
+          p_next_stage: 'extract'
         }
       );
       const { error: ordinaryFinalizeError } = await actor.client.rpc(
-        'finalize_file_version',
+        'finalize_processing_version',
         {
-          p_version_id: uploaded.version_id,
+          p_job_id: randomUUID(),
+          p_worker_id: 'forged-worker',
           p_status: 'failed',
           p_error_code: 'forged_failure'
         }
@@ -401,16 +525,23 @@ describe('processing state, audit, and device contracts', () => {
       expect(ordinaryCompleteError).not.toBeNull();
       expect(ordinaryFinalizeError).not.toBeNull();
       await claimVersionAsService(harness.admin, uploaded.version_id);
+      const { data: runningValidateJob } = await harness.admin
+        .from('processing_jobs')
+        .select('id')
+        .eq('version_id', uploaded.version_id)
+        .eq('status', 'running')
+        .single();
       const { error: runningFinalizeError } = await harness.admin.rpc(
-        'finalize_file_version',
+        'finalize_processing_version',
         {
-          p_version_id: uploaded.version_id,
+          p_job_id: runningValidateJob?.id,
+          p_worker_id: processingWorkerId(uploaded.version_id),
           p_status: 'searchable',
           p_error_code: null
         }
       );
       expect(runningFinalizeError?.message).toContain(
-        'nonterminal processing jobs'
+        'requires the finalize stage'
       );
 
       const completedJobId = await completeRunningJobAsService(
@@ -419,21 +550,28 @@ describe('processing state, audit, and device contracts', () => {
         true
       );
       const { error: repeatedCompleteError } = await harness.admin.rpc(
-        'complete_processing_job',
+        'complete_processing_stage',
         {
           p_job_id: completedJobId,
-          p_succeeded: true,
-          p_error_code: null
+          p_worker_id: processingWorkerId(uploaded.version_id),
+          p_next_stage: 'extract'
         }
       );
       expect(repeatedCompleteError?.message).toContain(
-        'processing job is not running'
+        'active processing lease not owned'
       );
 
+      const { data: zeroChunkFinalizeJob } = await harness.admin
+        .from('processing_jobs')
+        .select('id')
+        .eq('version_id', uploaded.version_id)
+        .eq('stage', 'finalize')
+        .single();
       const { error: zeroChunkFinalizeError } = await harness.admin.rpc(
-        'finalize_file_version',
+        'finalize_processing_version',
         {
-          p_version_id: uploaded.version_id,
+          p_job_id: zeroChunkFinalizeJob?.id,
+          p_worker_id: processingWorkerId(uploaded.version_id),
           p_status: 'searchable',
           p_error_code: null
         }
@@ -447,26 +585,38 @@ describe('processing state, audit, and device contracts', () => {
         uploaded.version_id,
         'immutable-after-finalize'
       );
-      await finalizeAsService(harness.admin, uploaded.version_id, 'searchable');
+      const finalizedJobId = await publishVersionAsService(
+        harness.admin,
+        uploaded.version_id,
+        'searchable'
+      );
 
       const { error: repeatedFinalizeError } = await harness.admin.rpc(
-        'finalize_file_version',
+        'finalize_processing_version',
         {
-          p_version_id: uploaded.version_id,
+          p_job_id: finalizedJobId,
+          p_worker_id: processingWorkerId(uploaded.version_id),
           p_status: 'searchable',
           p_error_code: null
         }
       );
       expect(repeatedFinalizeError?.message).toContain(
-        'file version is not processing'
+        'active processing lease not owned'
       );
 
       const { error: finalizedInsertError } = await harness.admin
         .from('content_chunks')
         .insert({
           version_id: uploaded.version_id,
+          chunk_index: 1,
           content: 'late content',
-          source_location: { page: 2 },
+          source_location: {
+            schemaVersion: 1,
+            kind: 'page',
+            page: 2,
+            label: '第 2 页'
+          },
+          search_tokens: [],
           embedding: Array.from({ length: 384 }, () => 0)
         });
       const { error: finalizedUpdateError } = await harness.admin
@@ -538,7 +688,11 @@ describe('processing state, audit, and device contracts', () => {
         version.version_id,
         true
       );
-      await finalizeAsService(harness.admin, version.version_id, 'searchable');
+      await publishVersionAsService(
+        harness.admin,
+        version.version_id,
+        'searchable'
+      );
 
       const { error: liveDeleteError } = await harness.admin
         .from('content_chunks')
@@ -564,8 +718,14 @@ describe('processing state, audit, and device contracts', () => {
       );
 
       const claims = await Promise.all([
-        harness.admin.rpc('claim_processing_job'),
-        harness.admin.rpc('claim_processing_job')
+        harness.admin.rpc('claim_processing_job', {
+          p_worker_id: 'concurrent-worker-a',
+          p_lease_seconds: PROCESSING_LEASE_SECONDS
+        }),
+        harness.admin.rpc('claim_processing_job', {
+          p_worker_id: 'concurrent-worker-b',
+          p_lease_seconds: PROCESSING_LEASE_SECONDS
+        })
       ]);
       expect(claims.map(({ error }) => error)).toEqual([null, null]);
       const claimedRows = claims.flatMap(({ data }) => data ?? []);
@@ -599,33 +759,34 @@ describe('processing state, audit, and device contracts', () => {
         if (jobsError) throw jobsError;
         expect(jobs.attempts).toBe(attempt);
 
-        const { error: completionError } = await harness.admin.rpc(
-          'complete_processing_job',
-          {
-            p_job_id: jobs.id,
-            p_succeeded: false,
-            p_error_code: longErrorCode
-          }
-        );
-        expect(completionError).toBeNull();
         if (attempt === 1) {
-          const { error: failedAsSearchableError } = await harness.admin.rpc(
-            'finalize_file_version',
+          const { error: earlyFinalizeError } = await harness.admin.rpc(
+            'finalize_processing_version',
             {
-              p_version_id: version.version_id,
+              p_job_id: jobs.id,
+              p_worker_id: processingWorkerId(version.version_id),
               p_status: 'searchable',
               p_error_code: null
             }
           );
-          expect(failedAsSearchableError?.message).toContain(
-            'requires all jobs to succeed'
+          expect(earlyFinalizeError?.message).toContain(
+            'requires the finalize stage'
           );
         }
-        await finalizeAsService(
+
+        const { error: completionError } = await harness.admin.rpc(
+          'fail_processing_stage',
+          {
+            p_job_id: jobs.id,
+            p_worker_id: processingWorkerId(version.version_id),
+            p_error_code: longErrorCode,
+            p_permanent: true
+          }
+        );
+        expect(completionError).toBeNull();
+        await assertVersionFailedByStageFailure(
           harness.admin,
-          version.version_id,
-          'failed',
-          longErrorCode
+          version.version_id
         );
 
         const { data: failedJob } = await harness.admin
@@ -689,11 +850,9 @@ describe('processing state, audit, and device contracts', () => {
         false,
         'extract_failed'
       );
-      await finalizeAsService(
+      await assertVersionFailedByStageFailure(
         harness.admin,
-        version.version_id,
-        'failed',
-        'extract_failed'
+        version.version_id
       );
 
       const { error: peerRetryError } = await peer.client.rpc(

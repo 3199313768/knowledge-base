@@ -8,6 +8,7 @@
     "test:phase0-model": "pnpm --filter @knowledge-base/search-spike test:model",
     "test:phase0-cloud": "pnpm --filter @knowledge-base/search-spike test:cloud",
     "typecheck": "pnpm -r typecheck",
-    "verify:phase-1": "pnpm test && pnpm typecheck && pnpm test:cloud"
+    "verify:phase-1": "pnpm test && pnpm typecheck && pnpm test:cloud",
+    "verify:phase-2-local": "pnpm test && pnpm --filter @knowledge-base/search-core test:model && pnpm typecheck"
   }
 }

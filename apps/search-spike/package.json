@@ -10,8 +10,8 @@
     "evaluate": "tsx src/evaluate.ts"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.2.0",
     "@knowledge-base/contracts": "workspace:*",
+    "@knowledge-base/search-core": "workspace:*",
     "@supabase/supabase-js": "^2.112.0",
     "dotenv": "^17.4.2"
   },

@@ -1,0 +1,20 @@
+{
+  "name": "@knowledge-base/search-core",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:model": "vitest run --config vitest.model.config.ts src/e5.model.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "@knowledge-base/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

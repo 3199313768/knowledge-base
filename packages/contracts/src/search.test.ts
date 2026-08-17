@@ -14,6 +14,23 @@ describe('assertSearchResult', () => {
     ).not.toThrow();
   });
 
+  it('accepts a result with a versioned processing source location', () => {
+    expect(() =>
+      assertSearchResult({
+        fileId: 'file-2',
+        fileName: '处理说明.pdf',
+        score: 0.88,
+        snippet: '第 3 页正文',
+        sourceLocation: {
+          schemaVersion: 1,
+          kind: 'page',
+          page: 3,
+          label: '第 3 页'
+        }
+      })
+    ).not.toThrow();
+  });
+
   it('rejects a result without a source label', () => {
     expect(() =>
       assertSearchResult({
