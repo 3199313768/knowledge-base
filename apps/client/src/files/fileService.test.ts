@@ -130,6 +130,78 @@ describe('defaultFileService contract', () => {
       p_version_id: 'version-a'
     });
   });
+
+  it('resolves a permission-protected storage path and returns a signed preview URL', async () => {
+    const rpc = vi.fn(async () => ({
+      data: 'workspace-a/file-a/version-a.pdf',
+      error: null
+    }));
+    const createSignedUrl = vi.fn(async () => ({
+      data: { signedUrl: 'https://storage.example.test/signed/file-a' },
+      error: null
+    }));
+    const from = vi.fn(() => ({ createSignedUrl }));
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue({
+      rpc,
+      storage: { from }
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    await expect(defaultFileService.getFilePreviewUrl('file-a')).resolves.toBe(
+      'https://storage.example.test/signed/file-a'
+    );
+    expect(rpc).toHaveBeenCalledWith('get_file_storage_path', {
+      p_file_id: 'file-a'
+    });
+    expect(from).toHaveBeenCalledWith('documents');
+    expect(createSignedUrl).toHaveBeenCalledWith(
+      'workspace-a/file-a/version-a.pdf',
+      300
+    );
+  });
+
+  it('rejects when the protected path or signed URL is missing', async () => {
+    const rpc = vi.fn(async () => ({ data: null, error: null }));
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue({
+      rpc,
+      storage: { from: vi.fn() }
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    await expect(defaultFileService.getFilePreviewUrl('missing-file')).rejects.toThrow(
+      '文件预览暂不可用，请检查文件权限或稍后重试'
+    );
+  });
+
+  it('maps permission and storage failures to a safe preview error', async () => {
+    const rpc = vi.fn(async () => ({
+      data: null,
+      error: { code: '42501', message: 'permission denied' }
+    }));
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue({
+      rpc,
+      storage: { from: vi.fn() }
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    await expect(defaultFileService.getFilePreviewUrl('forbidden-file')).rejects.toThrow(
+      '文件预览暂不可用，请检查文件权限或稍后重试'
+    );
+
+    const storageRpc = vi.fn(async () => ({
+      data: 'workspace-a/file-a/version-a.pdf',
+      error: null
+    }));
+    const createSignedUrl = vi.fn(async () => ({
+      data: null,
+      error: { message: 'storage permission denied' }
+    }));
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue({
+      rpc: storageRpc,
+      storage: { from: vi.fn(() => ({ createSignedUrl })) }
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    await expect(defaultFileService.getFilePreviewUrl('file-a')).rejects.toThrow(
+      '文件预览暂不可用，请检查文件权限或稍后重试'
+    );
+  });
 });
 
 function fileWithStatus(

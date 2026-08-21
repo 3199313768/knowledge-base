@@ -503,6 +503,7 @@ h2 {
 .search-panel > .message,
 .search-panel > .search-empty,
 .search-panel > .search-results,
+.search-panel > .search-history,
 .upload-panel > .message {
   grid-column: 1 / -1;
 }
@@ -922,6 +923,84 @@ h2 {
   gap: 8px;
 }
 
+.search-history {
+  background: rgba(247, 249, 252, 0.66);
+  border: 1px solid #e0e6ee;
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.search-history__header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.search-history__header h3 {
+  color: #596678;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.search-history__header .button--link {
+  font-size: 0.78rem;
+  padding: 0;
+}
+
+.search-history__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.search-history__item {
+  background: #fff;
+  border: 1px solid #dce3ec;
+  border-radius: 999px;
+  color: #3b5f87;
+  font-size: 0.8rem;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 5px 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-history__status,
+.search-history__empty,
+.search-history__error {
+  color: #768190;
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.search-history__empty {
+  display: grid;
+  gap: 2px;
+}
+
+.search-history__empty p,
+.search-history__empty span,
+.search-history__error p {
+  margin: 0;
+}
+
+.search-history__error {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.search-history__error .button--link {
+  font-size: 0.8rem;
+  padding: 0;
+}
+
 .search-result {
   align-items: start;
   background: rgba(247, 249, 252, 0.76);
@@ -933,6 +1012,10 @@ h2 {
   padding: 13px 14px;
 }
 
+.search-result__content {
+  min-width: 0;
+}
+
 .search-result__meta {
   align-items: end;
   color: #6f7782;
@@ -940,6 +1023,10 @@ h2 {
   font-size: 0.82rem;
   gap: 4px;
   justify-items: end;
+}
+
+.search-result__meta .button--link {
+  font-size: 0.82rem;
 }
 
 .badge,
@@ -1137,6 +1224,7 @@ h2 {
   .search-panel > .message,
   .search-panel > .search-empty,
   .search-panel > .search-results,
+  .search-panel > .search-history,
   .upload-panel > .message {
     grid-column: 1;
   }

@@ -8,6 +8,7 @@ import { useWorkspaces } from '../workspaces/useWorkspaces';
 import type { FileService } from '../files/fileService';
 import type { FileSummary } from '../files/fileService';
 import type { SearchService } from '../search/searchService';
+import type { SearchHistoryService } from '../search/searchHistoryService';
 import type { UploadService } from '../uploads/uploadService';
 import type { WorkspaceService } from '../workspaces/workspaceService';
 
@@ -15,6 +16,7 @@ interface MainShellProps {
   email: string;
   fileService: FileService;
   onSignOutCurrentDevice: () => Promise<void>;
+  searchHistoryService: SearchHistoryService;
   searchService: SearchService;
   uploadService: UploadService;
   workspaceService: WorkspaceService;
@@ -28,6 +30,7 @@ export function MainShell({
   email,
   fileService,
   onSignOutCurrentDevice,
+  searchHistoryService,
   searchService,
   uploadService,
   workspaceService
@@ -84,8 +87,10 @@ export function MainShell({
       isLoadingFiles={filesState.isLoading}
       lastRefreshedAt={filesState.lastRefreshedAt}
       onDeleteFile={deleteFile}
+      onPreviewFile={(file) => fileService.getFilePreviewUrl(file.id)}
       onRefreshFiles={filesState.refreshFiles}
       onRetryFile={retryFile}
+      searchHistoryService={searchHistoryService}
       searchService={searchService}
       uploadService={uploadService}
     />

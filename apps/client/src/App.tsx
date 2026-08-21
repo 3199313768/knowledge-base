@@ -4,6 +4,7 @@ import { defaultAuthService, type AuthService } from './auth/authService';
 import { useAuthSession } from './auth/useAuthSession';
 import { defaultFileService, type FileService } from './files/fileService';
 import { defaultSearchService, type SearchService } from './search/searchService';
+import { defaultSearchHistoryService, type SearchHistoryService } from './search/searchHistoryService';
 import {
   defaultUploadService,
   type UploadService
@@ -18,6 +19,7 @@ interface AppProps {
   authService?: AuthService;
   fileService?: FileService;
   forceAuthPage?: boolean;
+  searchHistoryService?: SearchHistoryService;
   searchService?: SearchService;
   uploadService?: UploadService;
   workspaceService?: WorkspaceService;
@@ -27,6 +29,7 @@ export default function App({
   authService = defaultAuthService,
   fileService = defaultFileService,
   forceAuthPage = false,
+  searchHistoryService = defaultSearchHistoryService,
   searchService = defaultSearchService,
   uploadService = defaultUploadService,
   workspaceService = defaultWorkspaceService
@@ -69,6 +72,7 @@ export default function App({
       email={session.user.email ?? '当前账号'}
       fileService={fileService}
       onSignOutCurrentDevice={authService.signOutCurrentDevice}
+      searchHistoryService={searchHistoryService}
       searchService={searchService}
       uploadService={uploadService}
       workspaceService={workspaceService}

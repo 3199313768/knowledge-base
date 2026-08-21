@@ -1,21 +1,42 @@
 import { useState } from 'react';
 import { useSearch } from '../search/useSearch';
 import type { SearchService } from '../search/searchService';
+import {
+  defaultSearchHistoryService,
+  type SearchHistoryService
+} from '../search/searchHistoryService';
+import { useSearchHistory } from '../search/useSearchHistory';
 import { Button } from './ui/Button';
 import { TextInput } from './ui/TextInput';
+import { SearchHistory } from './SearchHistory';
+import { SearchResults } from './SearchResults';
 
 interface SearchPanelProps {
   searchService: SearchService;
+  searchHistoryService?: SearchHistoryService;
   workspaceId: string;
+  onOpenFile?: (fileId: string) => void;
 }
 
-export function SearchPanel({ searchService, workspaceId }: SearchPanelProps) {
+export function SearchPanel({
+  searchHistoryService = defaultSearchHistoryService,
+  searchService,
+  workspaceId,
+  onOpenFile = () => undefined
+}: SearchPanelProps) {
   const [query, setQuery] = useState('');
-  const searchState = useSearch(searchService, workspaceId);
+  const historyState = useSearchHistory(searchHistoryService, workspaceId);
+  const searchState = useSearch(searchService, workspaceId, (successfulQuery) => {
+    void historyState.record(successfulQuery);
+  });
+
+  function runSearch(nextQuery: string) {
+    void searchState.search(nextQuery);
+  }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void searchState.search(query);
+    runSearch(query);
   }
 
   return (
@@ -33,35 +54,28 @@ export function SearchPanel({ searchService, workspaceId }: SearchPanelProps) {
         </Button>
       </form>
 
-      {searchState.isSearching ? <p className="message">正在搜索…</p> : null}
-      {searchState.error ? (
-        <p className="message message--error">{searchState.error}</p>
-      ) : null}
-      {!searchState.isSearching &&
-      !searchState.error &&
-      searchState.searchedQuery &&
-      searchState.results.length === 0 ? (
-        <div className="search-empty">
-          <h3>没有找到匹配资料</h3>
-          <p>可以换一个关键词，或等待文件处理完成后再试。</p>
-        </div>
-      ) : null}
+      <SearchHistory
+        error={historyState.error}
+        isClearing={historyState.isClearing}
+        isLoading={historyState.isLoading}
+        items={historyState.items}
+        onClear={historyState.clear}
+        onRetry={historyState.load}
+        onSelect={(nextQuery) => {
+          setQuery(nextQuery);
+          runSearch(nextQuery);
+        }}
+      />
 
-      {searchState.results.length > 0 ? (
-        <div className="search-results" aria-label="搜索结果">
-          {searchState.results.map((result) => (
-            <article className="search-result" key={result.fileId}>
-              <div>
-                <h3>{result.fileName}</h3>
-                <p>{result.snippet}</p>
-              </div>
-              <div className="search-result__meta">
-                <span>{result.sourceLabel}</span>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : null}
+      <SearchResults
+        error={searchState.error}
+        errorKind={searchState.errorKind}
+        isLoading={searchState.isSearching}
+        onOpenFile={onOpenFile}
+        onRetry={searchState.canRetry ? searchState.retry : undefined}
+        query={searchState.searchedQuery}
+        results={searchState.results}
+      />
     </div>
   );
 }

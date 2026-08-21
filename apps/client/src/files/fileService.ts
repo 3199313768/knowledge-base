@@ -31,10 +31,13 @@ export interface FileStatusSummary {
 }
 
 export interface FileService {
+  getFilePreviewUrl: (fileId: string) => Promise<string>;
   listFiles: (workspaceId: string) => Promise<FileSummary[]>;
   retryFileVersion: (versionId: string) => Promise<void>;
   softDeleteFile: (fileId: string) => Promise<void>;
 }
+
+export const FILE_PREVIEW_ERROR_MESSAGE = '文件预览暂不可用，请检查文件权限或稍后重试';
 
 interface FileVersionRow {
   id: string;
@@ -126,6 +129,32 @@ export function summarizeFileStatuses(files: FileSummary[]): FileStatusSummary {
 }
 
 export const defaultFileService: FileService = {
+  async getFilePreviewUrl(fileId) {
+    if (!fileId.trim()) {
+      throw new Error(FILE_PREVIEW_ERROR_MESSAGE);
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    const { data: storagePath, error: pathError } = await supabase.rpc(
+      'get_file_storage_path',
+      { p_file_id: fileId }
+    );
+
+    if (pathError || typeof storagePath !== 'string' || storagePath.length === 0) {
+      throw new Error(FILE_PREVIEW_ERROR_MESSAGE);
+    }
+
+    const { data: signedUrl, error: storageError } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(storagePath, 300);
+
+    if (storageError || !signedUrl?.signedUrl) {
+      throw new Error(FILE_PREVIEW_ERROR_MESSAGE);
+    }
+
+    return signedUrl.signedUrl;
+  },
+
   async listFiles(workspaceId) {
     const supabase = getSupabaseBrowserClient();
     const { data, error } = await supabase

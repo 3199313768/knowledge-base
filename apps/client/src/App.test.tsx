@@ -6,6 +6,7 @@ import App from './App';
 import type { AuthService } from './auth/authService';
 import type { FileService, FileSummary } from './files/fileService';
 import type { SearchService } from './search/searchService';
+import type { SearchHistoryService } from './search/searchHistoryService';
 import type { UploadService } from './uploads/uploadService';
 import type { WorkspaceService, WorkspaceSummary } from './workspaces/workspaceService';
 
@@ -87,6 +88,7 @@ function createUploadService() {
 function createFileService(initialFiles: FileSummary[] = []) {
   let files = initialFiles;
   const fileService: FileService = {
+    getFilePreviewUrl: vi.fn(async () => 'https://storage.example.test/preview'),
     listFiles: vi.fn(async () => files),
     retryFileVersion: vi.fn(async () => undefined),
     softDeleteFile: vi.fn(async (fileId) => {
@@ -116,6 +118,23 @@ function createSearchService() {
   };
 
   return { searchService };
+}
+
+function createSearchHistoryService() {
+  const searchHistoryService: SearchHistoryService = {
+    list: vi.fn(async () => [
+      {
+        id: 'history-a',
+        query: '历史查询',
+        createdAt: '2026-08-21T08:00:00.000Z',
+        updatedAt: '2026-08-21T09:00:00.000Z'
+      }
+    ]),
+    record: vi.fn(async () => undefined),
+    clear: vi.fn(async () => undefined)
+  };
+
+  return { searchHistoryService };
 }
 
 afterEach(() => {
@@ -715,6 +734,7 @@ describe('App Phase 3 auth shell', () => {
     ]);
     const { uploadService } = createUploadService();
     const fileService: FileService = {
+      getFilePreviewUrl: vi.fn(async () => 'https://storage.example.test/preview'),
       listFiles: vi.fn(async () => {
         throw new Error('workspace membership required');
       }),
@@ -886,6 +906,16 @@ describe('App Phase 3 auth shell', () => {
     expect(await screen.findByText('年度报价策略')).toBeInTheDocument();
     expect(screen.getByText('第 3 页')).toBeInTheDocument();
     expect(screen.queryByText('0.420')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '打开文件 产品方案.pdf' }));
+    expect(screen.getByRole('heading', { name: '产品方案.pdf', level: 2 })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '生成 PDF 预览链接' }));
+    expect(await screen.findByRole('link', { name: '在新窗口打开 PDF' })).toHaveAttribute(
+      'href',
+      'https://storage.example.test/preview'
+    );
+    expect(fileService.getFilePreviewUrl).toHaveBeenCalledWith('file-a');
   });
 
   it('shows search empty state when no results are returned', async () => {
@@ -925,6 +955,43 @@ describe('App Phase 3 auth shell', () => {
     fireEvent.click(screen.getByRole('button', { name: '搜索' }));
 
     expect(await screen.findByText('没有找到匹配资料')).toBeInTheDocument();
+  });
+
+  it('re-runs a selected search history item from the workspace dashboard', async () => {
+    const { authService } = createAuthService(sessionFor('owner@example.test'));
+    const { workspaceService } = createWorkspaceService([
+      { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' }
+    ]);
+    const { uploadService } = createUploadService();
+    const { fileService } = createFileService();
+    const { searchService } = createSearchService();
+    const { searchHistoryService } = createSearchHistoryService();
+
+    render(
+      <App
+        authService={authService}
+        fileService={fileService}
+        searchHistoryService={searchHistoryService}
+        searchService={searchService}
+        uploadService={uploadService}
+        workspaceService={workspaceService}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: '搜索历史：历史查询' }));
+
+    await waitFor(() => {
+      expect(searchService.search).toHaveBeenCalledWith({
+        query: '历史查询',
+        workspaceId: 'workspace-a'
+      });
+    });
+    await waitFor(() => {
+      expect(searchHistoryService.record).toHaveBeenCalledWith({
+        query: '历史查询',
+        workspaceId: 'workspace-a'
+      });
+    });
   });
 
   it('soft deletes a file after confirmation and refreshes the list', async () => {

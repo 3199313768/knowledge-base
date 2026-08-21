@@ -6,6 +6,7 @@ import { UploadPanel } from './UploadPanel';
 import { Card } from './ui/Card';
 import type { FileSummary } from '../files/fileService';
 import type { SearchService } from '../search/searchService';
+import type { SearchHistoryService } from '../search/searchHistoryService';
 import type { UploadService } from '../uploads/uploadService';
 import type { WorkspaceSummary } from '../workspaces/workspaceService';
 
@@ -16,8 +17,10 @@ interface WorkspaceDashboardProps {
   isLoadingFiles: boolean;
   lastRefreshedAt: string | null;
   onDeleteFile: (file: FileSummary) => Promise<void>;
+  onPreviewFile: (file: FileSummary) => Promise<string>;
   onRefreshFiles: () => Promise<void>;
   onRetryFile: (file: FileSummary) => Promise<void>;
+  searchHistoryService: SearchHistoryService;
   searchService: SearchService;
   uploadService: UploadService;
 }
@@ -29,17 +32,29 @@ export function WorkspaceDashboard({
   isLoadingFiles,
   lastRefreshedAt,
   onDeleteFile,
+  onPreviewFile,
   onRefreshFiles,
   onRetryFile,
+  searchHistoryService,
   searchService,
   uploadService
 }: WorkspaceDashboardProps) {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [fileSelectionError, setFileSelectionError] = useState<string | null>(null);
   const selectedFile = useMemo(
     () => files.find((file) => file.id === selectedFileId) ?? files[0] ?? null,
     [files, selectedFileId]
   );
   const isEmpty = files.length === 0;
+
+  function handleOpenFile(fileId: string) {
+    if (!files.some((file) => file.id === fileId)) {
+      setFileSelectionError('搜索结果对应的文件当前不可用，请刷新文件列表后重试。');
+      return;
+    }
+    setFileSelectionError(null);
+    setSelectedFileId(fileId);
+  }
 
   useEffect(() => {
     if (files.length === 0) {
@@ -70,7 +85,12 @@ export function WorkspaceDashboard({
       <div className={isEmpty ? 'workbench-grid workbench-grid--empty' : 'workbench-grid'}>
         <div className="workbench-main">
           <div className="workbench-command">
-            <SearchPanel searchService={searchService} workspaceId={currentWorkspace.id} />
+            <SearchPanel
+              onOpenFile={handleOpenFile}
+              searchHistoryService={searchHistoryService}
+              searchService={searchService}
+              workspaceId={currentWorkspace.id}
+            />
             {!isEmpty ? (
               <UploadPanel
                 onUploadSettled={onRefreshFiles}
@@ -111,12 +131,18 @@ export function WorkspaceDashboard({
           )}
         </div>
 
-        {selectedFile ? (
+          {selectedFile ? (
           <FileInspector
             file={selectedFile}
             onDeleteFile={onDeleteFile}
+            onPreviewFile={onPreviewFile}
             onRetryFile={onRetryFile}
           />
+        ) : null}
+        {fileSelectionError ? (
+          <p className="message message--error" role="alert">
+            {fileSelectionError}
+          </p>
         ) : null}
       </div>
     </section>

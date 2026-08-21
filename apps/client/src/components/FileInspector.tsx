@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import {
   formatFileSize,
   formatFileStatus,
@@ -10,6 +11,7 @@ import { Button } from './ui/Button';
 interface FileInspectorProps {
   file: FileSummary | null;
   onDeleteFile: (file: FileSummary) => Promise<void>;
+  onPreviewFile: (file: FileSummary) => Promise<string>;
   onRetryFile: (file: FileSummary) => Promise<void>;
 }
 
@@ -47,13 +49,55 @@ function statusTone(status: FileVersionStatus | null | undefined) {
 export function FileInspector({
   file,
   onDeleteFile,
+  onPreviewFile,
   onRetryFile
 }: FileInspectorProps) {
+  const previewRequestRef = useRef(0);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    previewRequestRef.current += 1;
+    setPreviewUrl(null);
+    setPreviewError(null);
+    setIsPreviewing(false);
+  }, [file?.id, file?.currentVersion?.id]);
+
   if (!file) {
     return null;
   }
 
+  const selectedFile = file;
+
   const status = file.currentVersion?.status ?? null;
+  const mimeType = file.currentVersion?.mimeType?.toLowerCase() ?? '';
+  const isPdf = mimeType === 'application/pdf' || file.displayName.toLowerCase().endsWith('.pdf');
+  const isDocx =
+    mimeType ===
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    file.displayName.toLowerCase().endsWith('.docx');
+
+  async function handlePreview() {
+    const requestToken = ++previewRequestRef.current;
+    setIsPreviewing(true);
+    setPreviewError(null);
+    try {
+      const nextUrl = await onPreviewFile(selectedFile);
+      if (requestToken === previewRequestRef.current) {
+        setPreviewUrl(nextUrl);
+      }
+    } catch {
+      if (requestToken === previewRequestRef.current) {
+        setPreviewUrl(null);
+        setPreviewError('文件预览暂不可用，请检查文件权限或稍后重试');
+      }
+    } finally {
+      if (requestToken === previewRequestRef.current) {
+        setIsPreviewing(false);
+      }
+    }
+  }
 
   return (
     <aside className="file-inspector" aria-label="文件检查器">
@@ -76,6 +120,56 @@ export function FileInspector({
       {status === 'failed' ? (
         <p className="file-inspector__warning">当前版本处理失败</p>
       ) : null}
+
+      <section className="file-inspector__preview" aria-label="文件预览">
+        <h3>文件预览</h3>
+        {isPdf ? (
+          <>
+            <Button
+              aria-label="生成 PDF 预览链接"
+              disabled={isPreviewing}
+              onClick={() => void handlePreview()}
+              variant="link"
+            >
+              {isPreviewing ? '正在生成预览…' : '打开 PDF 预览'}
+            </Button>
+            {previewUrl ? (
+              <a href={previewUrl} rel="noreferrer" target="_blank">
+                在新窗口打开 PDF
+              </a>
+            ) : null}
+          </>
+        ) : isDocx ? (
+          <>
+            <p>DOCX 文件暂不支持内嵌预览，请下载后使用文档应用打开。</p>
+            <Button
+              aria-label="准备 DOCX 下载链接"
+              disabled={isPreviewing}
+              onClick={() => void handlePreview()}
+              variant="link"
+            >
+              {isPreviewing ? '正在准备下载…' : '准备下载链接'}
+            </Button>
+            {previewUrl ? (
+              <a
+                download={file.displayName}
+                href={previewUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                下载并打开 DOCX
+              </a>
+            ) : null}
+          </>
+        ) : (
+          <p>当前文件类型暂不支持预览。</p>
+        )}
+        {previewError ? (
+          <p className="message message--error" role="alert">
+            {previewError}
+          </p>
+        ) : null}
+      </section>
 
       <div className="file-inspector__actions">
         {status === 'failed' ? (
