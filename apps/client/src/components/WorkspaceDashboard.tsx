@@ -1,8 +1,10 @@
+import { useEffect, useMemo, useState } from 'react';
 import { FileListPanel } from './FileListPanel';
+import { FileInspector } from './FileInspector';
 import { SearchPanel } from './SearchPanel';
 import { UploadPanel } from './UploadPanel';
 import { Card } from './ui/Card';
-import { summarizeFileStatuses, type FileSummary } from '../files/fileService';
+import type { FileSummary } from '../files/fileService';
 import type { SearchService } from '../search/searchService';
 import type { UploadService } from '../uploads/uploadService';
 import type { WorkspaceSummary } from '../workspaces/workspaceService';
@@ -32,21 +34,30 @@ export function WorkspaceDashboard({
   searchService,
   uploadService
 }: WorkspaceDashboardProps) {
-  const summary = summarizeFileStatuses(files);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const selectedFile = useMemo(
+    () => files.find((file) => file.id === selectedFileId) ?? files[0] ?? null,
+    [files, selectedFileId]
+  );
+  const isEmpty = files.length === 0;
+
+  useEffect(() => {
+    if (files.length === 0) {
+      if (selectedFileId !== null) {
+        setSelectedFileId(null);
+      }
+      return;
+    }
+
+    if (!selectedFileId || !files.some((file) => file.id === selectedFileId)) {
+      setSelectedFileId(files[0].id);
+    }
+  }, [files, selectedFileId]);
 
   if (!currentWorkspace) {
     return (
       <section className="content-pane">
-        <header className="workbench-header">
-          <div>
-            <p className="eyebrow">Documents</p>
-            <h2>知识库工作台</h2>
-          </div>
-        </header>
         <Card className="empty-state" variant="dashed">
-          <div className="empty-state__icon" aria-hidden="true">
-            ↑
-          </div>
           <h2>请先创建或选择团队</h2>
           <p>资料、上传和搜索都会归属到当前团队。</p>
         </Card>
@@ -55,51 +66,58 @@ export function WorkspaceDashboard({
   }
 
   return (
-    <section className="content-pane">
-      <header className="workbench-header">
-        <div>
-          <p className="eyebrow">Documents</p>
-          <h2>知识库工作台</h2>
-          <p>当前页面：资料</p>
+    <section className="content-pane" aria-label="资料工作区">
+      <div className={isEmpty ? 'workbench-grid workbench-grid--empty' : 'workbench-grid'}>
+        <div className="workbench-main">
+          <div className="workbench-command">
+            <SearchPanel searchService={searchService} workspaceId={currentWorkspace.id} />
+            {!isEmpty ? (
+              <UploadPanel
+                onUploadSettled={onRefreshFiles}
+                uploadService={uploadService}
+                workspaceId={currentWorkspace.id}
+              />
+            ) : null}
+          </div>
+
+          {isEmpty ? (
+            <Card className="files-empty" variant="dashed">
+              {isLoadingFiles ? (
+                <p className="message">正在读取文件…</p>
+              ) : (
+                <>
+                  {fileError ? (
+                    <p className="message message--error">{fileError}</p>
+                  ) : null}
+                  <UploadPanel
+                    onUploadSettled={onRefreshFiles}
+                    uploadService={uploadService}
+                    variant="dropzone"
+                    workspaceId={currentWorkspace.id}
+                  />
+                </>
+              )}
+            </Card>
+          ) : (
+            <FileListPanel
+              error={fileError}
+              files={files}
+              isLoading={isLoadingFiles}
+              lastRefreshedAt={lastRefreshedAt}
+              onRefresh={onRefreshFiles}
+              onSelectFile={setSelectedFileId}
+              selectedFileId={selectedFile?.id ?? null}
+            />
+          )}
         </div>
-        <p className="workspace-current">当前团队：{currentWorkspace.name}</p>
-      </header>
 
-      <div className="status-grid" aria-label="当前团队状态">
-        <Card className="status-card">
-          <span>文件</span>
-          <strong>{summary.total}</strong>
-        </Card>
-        <Card className="status-card">
-          <span>待处理</span>
-          <strong>{summary.processing}</strong>
-        </Card>
-        <Card className="status-card">
-          <span>可搜索</span>
-          <strong>{summary.searchable}</strong>
-        </Card>
-        <Card className="status-card">
-          <span>失败</span>
-          <strong>{summary.failed}</strong>
-        </Card>
-      </div>
-
-      <div className="workspace-content">
-        <UploadPanel
-          onUploadSettled={onRefreshFiles}
-          uploadService={uploadService}
-          workspaceId={currentWorkspace.id}
-        />
-        <SearchPanel searchService={searchService} workspaceId={currentWorkspace.id} />
-        <FileListPanel
-          error={fileError}
-          files={files}
-          isLoading={isLoadingFiles}
-          lastRefreshedAt={lastRefreshedAt}
-          onDeleteFile={onDeleteFile}
-          onRefresh={onRefreshFiles}
-          onRetryFile={onRetryFile}
-        />
+        {selectedFile ? (
+          <FileInspector
+            file={selectedFile}
+            onDeleteFile={onDeleteFile}
+            onRetryFile={onRetryFile}
+          />
+        ) : null}
       </div>
     </section>
   );

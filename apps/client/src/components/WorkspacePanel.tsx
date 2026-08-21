@@ -23,11 +23,13 @@ export function WorkspacePanel({
   workspaces
 }: WorkspacePanelProps) {
   const [workspaceName, setWorkspaceName] = useState('');
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   async function handleCreateWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await onCreateWorkspace(workspaceName);
     setWorkspaceName('');
+    setIsCreateOpen(false);
   }
 
   if (isLoading) {
@@ -38,15 +40,19 @@ export function WorkspacePanel({
     );
   }
 
+  const showCreateForm = workspaces.length === 0 || isCreateOpen;
+
   return (
     <section className="workspace-panel" aria-labelledby="workspace-title">
       <div className="workspace-panel__header">
-        <div>
-          <p className="eyebrow">Teams</p>
-          <h2 id="workspace-title">
-            {currentWorkspace ? '选择当前团队' : '创建你的第一个团队'}
-          </h2>
-        </div>
+        <h2 id="workspace-title">
+          {currentWorkspace ? '选择当前团队' : '创建你的第一个团队'}
+        </h2>
+        {workspaces.length > 0 && !isCreateOpen ? (
+          <Button onClick={() => setIsCreateOpen(true)} variant="ghost">
+            新建团队
+          </Button>
+        ) : null}
       </div>
 
       {error ? <p className="message message--error">{error}</p> : null}
@@ -74,20 +80,36 @@ export function WorkspacePanel({
         </p>
       )}
 
-      <form className="workspace-create" onSubmit={handleCreateWorkspace}>
-        <label className="field">
-          <span>团队名称</span>
-          <TextInput
-            onChange={(event) => setWorkspaceName(event.target.value)}
-            placeholder="例如：产品知识库"
-            type="text"
-            value={workspaceName}
-          />
-        </label>
-        <Button disabled={isCreating} type="submit" variant="primary">
-          创建团队
-        </Button>
-      </form>
+      {showCreateForm ? (
+        <form className="workspace-create" onSubmit={handleCreateWorkspace}>
+          <label className="field">
+            <span>团队名称</span>
+            <TextInput
+              onChange={(event) => setWorkspaceName(event.target.value)}
+              placeholder="例如：产品知识库"
+              type="text"
+              value={workspaceName}
+            />
+          </label>
+          <div className="workspace-create__actions">
+            {workspaces.length > 0 ? (
+              <Button
+                onClick={() => {
+                  setIsCreateOpen(false);
+                  setWorkspaceName('');
+                }}
+                type="button"
+                variant="ghost"
+              >
+                取消
+              </Button>
+            ) : null}
+            <Button disabled={isCreating} type="submit" variant="primary">
+              创建团队
+            </Button>
+          </div>
+        </form>
+      ) : null}
     </section>
   );
 }

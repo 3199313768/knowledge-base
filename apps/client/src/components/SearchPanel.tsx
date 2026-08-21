@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useSearch } from '../search/useSearch';
 import type { SearchService } from '../search/searchService';
 import { Button } from './ui/Button';
-import { Card } from './ui/Card';
 import { TextInput } from './ui/TextInput';
 
 interface SearchPanelProps {
@@ -20,24 +19,15 @@ export function SearchPanel({ searchService, workspaceId }: SearchPanelProps) {
   }
 
   return (
-    <Card className="search-panel" aria-labelledby="search-title">
-      <div>
-        <p className="eyebrow">Search</p>
-        <h2 id="search-title">搜索资料</h2>
-        <p>在当前团队已处理的资料中查找匹配片段。</p>
-      </div>
-
+    <div className="search-panel">
       <form className="search-form" onSubmit={handleSubmit}>
-        <label className="field">
-          <span>搜索当前团队资料</span>
-          <TextInput
-            aria-label="搜索当前团队资料"
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="输入关键词，例如：年度报价"
-            type="search"
-            value={query}
-          />
-        </label>
+        <TextInput
+          aria-label="搜索当前团队资料"
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="输入关键词"
+          type="search"
+          value={query}
+        />
         <Button disabled={searchState.isSearching} type="submit" variant="primary">
           搜索
         </Button>
@@ -67,12 +57,11 @@ export function SearchPanel({ searchService, workspaceId }: SearchPanelProps) {
               </div>
               <div className="search-result__meta">
                 <span>{result.sourceLabel}</span>
-                <span>{result.score.toFixed(3)}</span>
               </div>
             </article>
           ))}
         </div>
       ) : null}
-    </Card>
+    </div>
   );
 }

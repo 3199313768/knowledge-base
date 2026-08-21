@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { AppSidebar } from './AppSidebar';
+import { AppSidebar, type SidebarSection } from './AppSidebar';
+import { PlaceholderPage } from './PlaceholderPage';
+import { TeamsPage } from './TeamsPage';
 import { WorkspaceDashboard } from './WorkspaceDashboard';
 import { useFiles } from '../files/useFiles';
 import { useWorkspaces } from '../workspaces/useWorkspaces';
@@ -30,9 +32,11 @@ export function MainShell({
   uploadService,
   workspaceService
 }: MainShellProps) {
+  const [activeSection, setActiveSection] = useState<SidebarSection>('files');
   const [fileActionError, setFileActionError] = useState<string | null>(null);
   const workspaceState = useWorkspaces(workspaceService);
   const filesState = useFiles(fileService, workspaceState.currentWorkspace?.id ?? null);
+  const currentSection = workspaceState.currentWorkspace ? activeSection : 'teams';
 
   async function deleteFile(file: FileSummary) {
     if (!window.confirm(`确定删除“${file.displayName}”吗？`)) {
@@ -62,33 +66,62 @@ export function MainShell({
     }
   }
 
+  async function createWorkspace(name: string) {
+    await workspaceState.createWorkspace(name);
+    setActiveSection('files');
+  }
+
+  function selectWorkspace(workspaceId: string) {
+    workspaceState.selectWorkspace(workspaceId);
+    setActiveSection('files');
+  }
+
+  let mainContent = (
+    <WorkspaceDashboard
+      currentWorkspace={workspaceState.currentWorkspace}
+      fileError={filesState.error ?? fileActionError}
+      files={filesState.files}
+      isLoadingFiles={filesState.isLoading}
+      lastRefreshedAt={filesState.lastRefreshedAt}
+      onDeleteFile={deleteFile}
+      onRefreshFiles={filesState.refreshFiles}
+      onRetryFile={retryFile}
+      searchService={searchService}
+      uploadService={uploadService}
+    />
+  );
+
+  if (currentSection === 'teams') {
+    mainContent = (
+      <TeamsPage
+        currentWorkspace={workspaceState.currentWorkspace}
+        error={workspaceState.error}
+        isCreating={workspaceState.isCreating}
+        isLoading={workspaceState.isLoading}
+        onCreateWorkspace={createWorkspace}
+        onSelectWorkspace={selectWorkspace}
+        workspaces={workspaceState.workspaces}
+      />
+    );
+  } else if (currentSection === 'recent') {
+    mainContent = (
+      <PlaceholderPage description="最近打开过的资料会显示在这里。" title="最近使用" />
+    );
+  } else if (currentSection === 'settings') {
+    mainContent = <PlaceholderPage description="账户与偏好设置会放在这里。" title="设置" />;
+  }
+
   return (
     <main className="shell">
       <div className="app-frame">
         <AppSidebar
+          activeSection={currentSection}
           currentWorkspace={workspaceState.currentWorkspace}
           email={email}
-          error={workspaceState.error}
-          isCreatingWorkspace={workspaceState.isCreating}
-          isLoadingWorkspaces={workspaceState.isLoading}
-          onCreateWorkspace={workspaceState.createWorkspace}
-          onSelectWorkspace={workspaceState.selectWorkspace}
+          onNavigate={setActiveSection}
           onSignOutCurrentDevice={onSignOutCurrentDevice}
-          workspaces={workspaceState.workspaces}
         />
-
-        <WorkspaceDashboard
-          currentWorkspace={workspaceState.currentWorkspace}
-          fileError={filesState.error ?? fileActionError}
-          files={filesState.files}
-          isLoadingFiles={filesState.isLoading}
-          lastRefreshedAt={filesState.lastRefreshedAt}
-          onDeleteFile={deleteFile}
-          onRefreshFiles={filesState.refreshFiles}
-          onRetryFile={retryFile}
-          searchService={searchService}
-          uploadService={uploadService}
-        />
+        {mainContent}
       </div>
     </main>
   );

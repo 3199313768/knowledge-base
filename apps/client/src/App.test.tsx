@@ -292,7 +292,7 @@ describe('App Phase 3 auth shell', () => {
     await waitFor(() => {
       expect(workspaceService.createWorkspace).toHaveBeenCalledWith('产品知识库');
     });
-    expect(await screen.findByText('当前团队：产品知识库')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '当前团队 产品知识库' })).toBeInTheDocument();
   });
 
   it('selects an existing workspace from the workspace list', async () => {
@@ -304,10 +304,11 @@ describe('App Phase 3 auth shell', () => {
 
     render(<App authService={authService} workspaceService={workspaceService} />);
 
-    expect(await screen.findByText('当前团队：研发团队')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '当前团队 研发团队' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '团队小组' }));
     fireEvent.click(screen.getByRole('button', { name: '运营团队' }));
 
-    expect(await screen.findByText('当前团队：运营团队')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '当前团队 运营团队' })).toBeInTheDocument();
   });
 
   it('shows a workspace loading error without breaking current-device sign out', async () => {
@@ -352,10 +353,12 @@ describe('App Phase 3 auth shell', () => {
       { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' }
     ]);
     const { uploadService } = createUploadService();
+    const { fileService } = createFileService();
 
     render(
       <App
         authService={authService}
+        fileService={fileService}
         uploadService={uploadService}
         workspaceService={workspaceService}
       />
@@ -381,10 +384,12 @@ describe('App Phase 3 auth shell', () => {
       { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' }
     ]);
     const { uploadService } = createUploadService();
+    const { fileService } = createFileService();
 
     render(
       <App
         authService={authService}
+        fileService={fileService}
         uploadService={uploadService}
         workspaceService={workspaceService}
       />
@@ -405,6 +410,7 @@ describe('App Phase 3 auth shell', () => {
       { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' }
     ]);
     const { uploadService } = createUploadService();
+    const { fileService } = createFileService();
     vi.mocked(uploadService.uploadFile).mockResolvedValueOnce({
       duplicateFileId: 'duplicate-file',
       outcome: 'duplicate'
@@ -413,6 +419,7 @@ describe('App Phase 3 auth shell', () => {
     render(
       <App
         authService={authService}
+        fileService={fileService}
         uploadService={uploadService}
         workspaceService={workspaceService}
       />
@@ -455,9 +462,9 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByText('产品方案.pdf')).toBeInTheDocument();
-    expect(screen.getByText('等待处理')).toBeInTheDocument();
-    expect(screen.getByText('1.5 KB')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '查看 产品方案.pdf' })).toBeInTheDocument();
+    expect(screen.getAllByText('等待处理').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('1.5 KB').length).toBeGreaterThan(0);
     expect(fileService.listFiles).toHaveBeenCalledWith('workspace-a');
   });
 
@@ -479,11 +486,144 @@ describe('App Phase 3 auth shell', () => {
     );
 
     expect(await screen.findByRole('navigation', { name: '应用导航' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '资料 当前页面' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '搜索 已可使用' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '上传 已可使用' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '设置 即将接入' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '知识库工作台' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '所有文件' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '最近使用' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '团队小组' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '设置' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '当前团队 研发团队' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: '资料工作区' })).toBeInTheDocument();
+    expect(screen.queryByText('Mac + iPhone 私有资料工作台')).not.toBeInTheDocument();
+    expect(screen.queryByText('当前页面：资料')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('当前团队状态')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('团队名称')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '新建团队' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '团队小组' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '团队小组' }));
+    expect(screen.getByRole('region', { name: '团队小组' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '新建团队' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '最近使用' }));
+    expect(screen.getByRole('region', { name: '最近使用' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '设置' }));
+    expect(screen.getByRole('region', { name: '设置' })).toBeInTheDocument();
+  });
+
+  it('shows the A1 Finder inspector workbench layout after selecting a workspace', async () => {
+    const { authService } = createAuthService(sessionFor('owner@example.test'));
+    const { workspaceService } = createWorkspaceService([
+      { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' }
+    ]);
+    const { uploadService } = createUploadService();
+    const { fileService } = createFileService([
+      {
+        id: 'file-a',
+        displayName: '产品方案.pdf',
+        currentVersion: {
+          id: 'version-a',
+          mimeType: 'application/pdf',
+          sizeBytes: 1536,
+          status: 'searchable'
+        },
+        updatedAt: '2026-08-17T06:00:00.000Z'
+      }
+    ]);
+
+    render(
+      <App
+        authService={authService}
+        fileService={fileService}
+        uploadService={uploadService}
+        workspaceService={workspaceService}
+      />
+    );
+
+    expect(await screen.findByRole('region', { name: '资料工作区' })).toBeInTheDocument();
+    expect(await screen.findByRole('complementary', { name: '文件检查器' })).toBeInTheDocument();
+    expect(screen.getByLabelText('搜索当前团队资料')).toBeInTheDocument();
+    expect(screen.getByLabelText('选择 PDF 或 DOCX')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '产品方案.pdf' })).toBeInTheDocument();
+    expect(screen.queryByText('version-a')).not.toBeInTheDocument();
+    expect(screen.queryByText('application/pdf')).not.toBeInTheDocument();
+    expect(screen.queryByText('打开详情')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '删除 产品方案.pdf' })).not.toBeInTheDocument();
+  });
+
+  it('hides explanatory copy inside search and upload entry cards', async () => {
+    const { authService } = createAuthService(sessionFor('owner@example.test'));
+    const { workspaceService } = createWorkspaceService([
+      { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' }
+    ]);
+    const { uploadService } = createUploadService();
+    const { fileService } = createFileService();
+
+    render(
+      <App
+        authService={authService}
+        fileService={fileService}
+        uploadService={uploadService}
+        workspaceService={workspaceService}
+      />
+    );
+
+    await screen.findByRole('region', { name: '资料工作区' });
+    expect(
+      screen.queryByText('在当前团队已处理的资料中查找匹配片段。')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('选择一个 PDF 或 DOCX，文件会归属到当前团队。')
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('搜索资料')).not.toBeInTheDocument();
+    expect(screen.queryByText('上传资料')).not.toBeInTheDocument();
+  });
+
+  it('updates the inspector when a file is selected from the Finder list', async () => {
+    const { authService } = createAuthService(sessionFor('owner@example.test'));
+    const { workspaceService } = createWorkspaceService([
+      { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' }
+    ]);
+    const { uploadService } = createUploadService();
+    const { fileService } = createFileService([
+      {
+        id: 'file-ready',
+        displayName: '产品方案.pdf',
+        currentVersion: {
+          id: 'version-ready',
+          mimeType: 'application/pdf',
+          sizeBytes: 1536,
+          status: 'searchable'
+        },
+        updatedAt: '2026-08-17T06:00:00.000Z'
+      },
+      {
+        id: 'file-failed',
+        displayName: '访谈记录.pdf',
+        currentVersion: {
+          id: 'version-failed',
+          mimeType: 'application/pdf',
+          sizeBytes: 2048,
+          status: 'failed'
+        },
+        updatedAt: '2026-08-17T07:00:00.000Z'
+      }
+    ]);
+
+    render(
+      <App
+        authService={authService}
+        fileService={fileService}
+        uploadService={uploadService}
+        workspaceService={workspaceService}
+      />
+    );
+
+    expect(await screen.findByRole('heading', { name: '产品方案.pdf' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '查看 访谈记录.pdf' }));
+
+    expect(screen.getByRole('heading', { name: '访谈记录.pdf' })).toBeInTheDocument();
+    expect(screen.queryByText('version-failed')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重新处理选中文件' })).toBeInTheDocument();
   });
 
   it('keeps current-device sign out in the workbench account area', async () => {
@@ -528,7 +668,44 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByText('还没有资料')).toBeInTheDocument();
+    expect(await screen.findByText('拖拽或选择 PDF / DOCX')).toBeInTheDocument();
+    expect(screen.queryByText('还没有资料')).not.toBeInTheDocument();
+    expect(screen.queryByText('上传后会在这里显示处理状态，并可用于搜索。')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('选择 PDF 或 DOCX')).toBeInTheDocument();
+    expect(screen.getByLabelText('搜索当前团队资料')).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: '文件检查器' })).not.toBeInTheDocument();
+  });
+
+  it('uploads a PDF by dragging it onto the empty dropzone', async () => {
+    const { authService } = createAuthService(sessionFor('owner@example.test'));
+    const { workspaceService } = createWorkspaceService([
+      { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' }
+    ]);
+    const { uploadService } = createUploadService();
+    const { fileService } = createFileService();
+
+    render(
+      <App
+        authService={authService}
+        fileService={fileService}
+        uploadService={uploadService}
+        workspaceService={workspaceService}
+      />
+    );
+
+    const dropzone = await screen.findByLabelText('拖拽上传 PDF 或 DOCX');
+    const file = new File(['%PDF-1.4\n'], '拖拽方案.pdf', { type: 'application/pdf' });
+    fireEvent.drop(dropzone, {
+      dataTransfer: { files: [file] }
+    });
+
+    await waitFor(() => {
+      expect(uploadService.uploadFile).toHaveBeenCalledWith({
+        file,
+        workspaceId: 'workspace-a'
+      });
+    });
+    expect(await screen.findByText('上传完成：拖拽方案.pdf')).toBeInTheDocument();
   });
 
   it('shows file list load errors without breaking upload entry', async () => {
@@ -556,6 +733,7 @@ describe('App Phase 3 auth shell', () => {
 
     expect(await screen.findByText('读取文件失败：workspace membership required')).toBeInTheDocument();
     expect(screen.getByLabelText('选择 PDF 或 DOCX')).toBeInTheDocument();
+    expect(screen.queryByText('还没有资料')).not.toBeInTheDocument();
   });
 
   it('refreshes the file list after a successful upload', async () => {
@@ -595,15 +773,14 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByText('还没有资料')).toBeInTheDocument();
+    expect(await screen.findByText('拖拽或选择 PDF / DOCX')).toBeInTheDocument();
 
     const input = screen.getByLabelText('选择 PDF 或 DOCX');
     fireEvent.change(input, {
       target: { files: [new File(['%PDF-1.4\n'], '新资料.pdf', { type: 'application/pdf' })] }
     });
 
-    expect(await screen.findByText('上传完成：新资料.pdf')).toBeInTheDocument();
-    expect(await screen.findByText('新资料.pdf')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '查看 新资料.pdf' })).toBeInTheDocument();
     expect(fileService.listFiles).toHaveBeenCalledTimes(2);
   });
 
@@ -658,10 +835,10 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByText('共 3 个文件')).toBeInTheDocument();
-    expect(screen.getByText('1 个待处理')).toBeInTheDocument();
-    expect(screen.getByText('1 个可搜索')).toBeInTheDocument();
-    expect(screen.getByText('1 个失败')).toBeInTheDocument();
+    expect(await screen.findByText(/共 3 个/)).toBeInTheDocument();
+    expect(screen.getByText(/待处理 1/)).toBeInTheDocument();
+    expect(screen.getByText(/可搜索 1/)).toBeInTheDocument();
+    expect(screen.getByText(/失败 1/)).toBeInTheDocument();
     expect(screen.getByText(/最后刷新：/)).toBeInTheDocument();
   });
 
@@ -671,7 +848,19 @@ describe('App Phase 3 auth shell', () => {
       { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' }
     ]);
     const { uploadService } = createUploadService();
-    const { fileService } = createFileService();
+    const { fileService } = createFileService([
+      {
+        id: 'file-a',
+        displayName: '产品方案.pdf',
+        currentVersion: {
+          id: 'version-a',
+          mimeType: 'application/pdf',
+          sizeBytes: 1536,
+          status: 'searchable'
+        },
+        updatedAt: '2026-08-17T06:00:00.000Z'
+      }
+    ]);
     const { searchService } = createSearchService();
 
     render(
@@ -695,8 +884,8 @@ describe('App Phase 3 auth shell', () => {
       });
     });
     expect(await screen.findByText('年度报价策略')).toBeInTheDocument();
-    expect(screen.getByText('产品方案.pdf')).toBeInTheDocument();
     expect(screen.getByText('第 3 页')).toBeInTheDocument();
+    expect(screen.queryByText('0.420')).not.toBeInTheDocument();
   });
 
   it('shows search empty state when no results are returned', async () => {
@@ -705,7 +894,19 @@ describe('App Phase 3 auth shell', () => {
       { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' }
     ]);
     const { uploadService } = createUploadService();
-    const { fileService } = createFileService();
+    const { fileService } = createFileService([
+      {
+        id: 'file-a',
+        displayName: '产品方案.pdf',
+        currentVersion: {
+          id: 'version-a',
+          mimeType: 'application/pdf',
+          sizeBytes: 1536,
+          status: 'searchable'
+        },
+        updatedAt: '2026-08-17T06:00:00.000Z'
+      }
+    ]);
     const { searchService } = createSearchService();
     vi.mocked(searchService.search).mockResolvedValueOnce([]);
 
@@ -758,13 +959,13 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByText('待删除.pdf')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '删除 待删除.pdf' }));
+    expect(await screen.findByRole('button', { name: '查看 待删除.pdf' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '删除选中文件' }));
 
     await waitFor(() => {
       expect(fileService.softDeleteFile).toHaveBeenCalledWith('file-delete');
     });
-    expect(await screen.findByText('还没有资料')).toBeInTheDocument();
+    expect(await screen.findByText('拖拽或选择 PDF / DOCX')).toBeInTheDocument();
   });
 
   it('does not soft delete when confirmation is cancelled', async () => {
@@ -799,11 +1000,11 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByText('保留.pdf')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '删除 保留.pdf' }));
+    expect(await screen.findByRole('button', { name: '查看 保留.pdf' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '删除选中文件' }));
 
     expect(fileService.softDeleteFile).not.toHaveBeenCalled();
-    expect(screen.getByText('保留.pdf')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '查看 保留.pdf' })).toBeInTheDocument();
   });
 
   it('retries a failed file version and refreshes the list', async () => {
@@ -837,8 +1038,8 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByText('失败文件.pdf')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '重新处理 失败文件.pdf' }));
+    expect(await screen.findByRole('button', { name: '查看 失败文件.pdf' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '重新处理选中文件' }));
 
     await waitFor(() => {
       expect(fileService.retryFileVersion).toHaveBeenCalledWith('version-failed');
@@ -880,13 +1081,13 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByText('删除失败.pdf')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '删除 删除失败.pdf' }));
+    expect(await screen.findByRole('button', { name: '查看 删除失败.pdf' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '删除选中文件' }));
 
     expect(
       await screen.findByText('删除文件失败：permission denied。请稍后重试。')
     ).toBeInTheDocument();
-    expect(screen.getByText('删除失败.pdf')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '查看 删除失败.pdf' })).toBeInTheDocument();
   });
 
   it('shows a safe error when retry processing fails', async () => {
@@ -923,12 +1124,12 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByText('重试失败.pdf')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '重新处理 重试失败.pdf' }));
+    expect(await screen.findByRole('button', { name: '查看 重试失败.pdf' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '重新处理选中文件' }));
 
     expect(
       await screen.findByText('重新处理失败：worker unavailable。请稍后重试。')
     ).toBeInTheDocument();
-    expect(screen.getByText('重试失败.pdf')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '查看 重试失败.pdf' })).toBeInTheDocument();
   });
 });
