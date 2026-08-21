@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   formatFileSize,
   formatFileStatus,
+  toFileOperationError,
   type FileSummary,
   type FileVersionStatus
 } from '../files/fileService';
@@ -53,15 +54,22 @@ export function FileInspector({
   onRetryFile
 }: FileInspectorProps) {
   const previewRequestRef = useRef(0);
+  const retryRequestRef = useRef(0);
+  const retryFileKeyRef = useRef<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [retryOutcome, setRetryOutcome] = useState<string | null>(null);
 
   useEffect(() => {
     previewRequestRef.current += 1;
+    retryRequestRef.current += 1;
     setPreviewUrl(null);
     setPreviewError(null);
     setIsPreviewing(false);
+    setIsRetrying(false);
+    setRetryOutcome(null);
   }, [file?.id, file?.currentVersion?.id]);
 
   if (!file) {
@@ -69,6 +77,8 @@ export function FileInspector({
   }
 
   const selectedFile = file;
+  const retryFileKey = `${selectedFile.id}:${selectedFile.currentVersion?.id ?? ''}`;
+  retryFileKeyRef.current = retryFileKey;
 
   const status = file.currentVersion?.status ?? null;
   const mimeType = file.currentVersion?.mimeType?.toLowerCase() ?? '';
@@ -95,6 +105,30 @@ export function FileInspector({
     } finally {
       if (requestToken === previewRequestRef.current) {
         setIsPreviewing(false);
+      }
+    }
+  }
+
+  async function handleRetry() {
+    if (isRetrying || selectedFile.currentVersion?.canRetry !== true) {
+      return;
+    }
+
+    const requestToken = ++retryRequestRef.current;
+    setIsRetrying(true);
+    setRetryOutcome(null);
+    try {
+      await onRetryFile(selectedFile);
+      if (requestToken === retryRequestRef.current && retryFileKeyRef.current === retryFileKey) {
+        setRetryOutcome('已提交重新处理');
+      }
+    } catch (error) {
+      if (requestToken === retryRequestRef.current && retryFileKeyRef.current === retryFileKey) {
+        setRetryOutcome(toFileOperationError(error).message);
+      }
+    } finally {
+      if (requestToken === retryRequestRef.current && retryFileKeyRef.current === retryFileKey) {
+        setIsRetrying(false);
       }
     }
   }
@@ -172,14 +206,21 @@ export function FileInspector({
       </section>
 
       <div className="file-inspector__actions">
-        {status === 'failed' ? (
+        {status === 'failed' && file.currentVersion?.canRetry === true ? (
           <Button
             aria-label="重新处理选中文件"
-            onClick={() => void onRetryFile(file)}
+            aria-busy={isRetrying}
+            disabled={isRetrying}
+            onClick={() => void handleRetry()}
             variant="ghost"
           >
-            重新处理
+            {isRetrying ? '正在重新处理…' : '重新处理'}
           </Button>
+        ) : null}
+        {retryOutcome ? (
+          <p aria-live="polite" className="message" role="status">
+            {retryOutcome}
+          </p>
         ) : null}
         <Button aria-label="删除选中文件" onClick={() => void onDeleteFile(file)} variant="ghost">
           删除

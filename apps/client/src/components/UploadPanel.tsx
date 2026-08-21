@@ -2,6 +2,8 @@ import { useId, useRef, useState } from 'react';
 import { useUploadQueue } from '../uploads/useUploadQueue';
 import { Button } from './ui/Button';
 import type { UploadService } from '../uploads/uploadService';
+import { useBatchUpload } from '../uploads/useBatchUpload';
+import { BatchOperationSummary } from './BatchOperationSummary';
 
 interface UploadPanelProps {
   onUploadSettled?: () => void;
@@ -21,6 +23,7 @@ export function UploadPanel({
   const dragDepthRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const uploadState = useUploadQueue(uploadService, workspaceId);
+  const batchState = useBatchUpload(uploadService, workspaceId);
 
   async function submitFile(file: File | undefined) {
     if (!file || uploadState.isUploading) {
@@ -34,9 +37,10 @@ export function UploadPanel({
   }
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files ?? []);
     event.target.value = '';
-    await submitFile(file);
+    if (files.length <= 1) await submitFile(files[0]);
+    else { const result = await batchState.run(files); if (result?.succeeded) onUploadSettled?.(); }
   }
 
   function handleDragEnter(event: React.DragEvent<HTMLElement>) {
@@ -95,6 +99,7 @@ export function UploadPanel({
       onChange={handleFileChange}
       ref={inputRef}
       type="file"
+      multiple
     />
   );
 
@@ -136,6 +141,7 @@ export function UploadPanel({
       </Button>
       {fileInput}
       {statusMessages}
+      <BatchOperationSummary result={batchState.result} />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   formatFileSize,
   formatFileStatus,
@@ -8,6 +9,14 @@ import {
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
+import {
+  FileStatusCenter,
+  filterFilesByStatus,
+  type FileStatusFilter
+} from './FileStatusCenter';
+import { useBatchFileOperations } from '../files/useBatchFileOperations';
+import { BatchOperationSummary } from './BatchOperationSummary';
+import type { FileService } from '../files/fileService';
 
 interface FileListPanelProps {
   error: string | null;
@@ -15,8 +24,10 @@ interface FileListPanelProps {
   isLoading: boolean;
   lastRefreshedAt: string | null;
   onRefresh: () => Promise<void>;
+  onRetryFile: (file: FileSummary) => Promise<void>;
   onSelectFile: (fileId: string) => void;
   selectedFileId: string | null;
+  fileService?: FileService;
 }
 
 function formatUpdatedAt(value: string | null) {
@@ -56,10 +67,21 @@ export function FileListPanel({
   isLoading,
   lastRefreshedAt,
   onRefresh,
+  onRetryFile,
   onSelectFile,
   selectedFileId
+  ,fileService
 }: FileListPanelProps) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const batch = useBatchFileOperations(fileService ?? ({
+    getFilePreviewUrl: async () => '',
+    listFiles: async () => [],
+    retryFileVersion: async () => undefined,
+    softDeleteFile: async () => undefined
+  } as FileService));
+  const [filter, setFilter] = useState<FileStatusFilter>('all');
   const summary = summarizeFileStatuses(files);
+  const visibleFiles = filterFilesByStatus(files, filter);
   const refreshedLabel = lastRefreshedAt
     ? formatUpdatedAt(lastRefreshedAt)
     : '尚未刷新';
@@ -77,16 +99,29 @@ export function FileListPanel({
         </Button>
       </div>
 
-      {isLoading ? <p className="message">正在读取文件…</p> : null}
-      {error ? <p className="message message--error">{error}</p> : null}
+      <FileStatusCenter
+        error={error}
+        files={files}
+        filter={filter}
+        isLoading={isLoading}
+        onFilterChange={setFilter}
+        onRetryFailed={onRetryFile}
+        summary={summary}
+      />
+      {fileService && visibleFiles.length ? <div className="batch-actions">
+        <Button disabled={!selectedIds.size || batch.isRunning} onClick={() => void batch.run(files.filter(f => selectedIds.has(f.id)), 'retry')}>批量重试</Button>
+        <Button disabled={!selectedIds.size || batch.isRunning} onClick={() => void batch.run(files.filter(f => selectedIds.has(f.id)), 'delete')} variant="link">批量移入回收站</Button>
+      </div> : null}
+      <BatchOperationSummary result={batch.result} />
 
-      {files.length > 0 ? (
+      {visibleFiles.length > 0 ? (
         <div className="file-list" aria-label="团队资料列表">
-          {files.map((file) => (
+          {visibleFiles.map((file) => (
             <article
               className={file.id === selectedFileId ? 'file-row file-row--active' : 'file-row'}
               key={file.id}
             >
+              {fileService ? <input aria-label={`选择 ${file.displayName}`} checked={selectedIds.has(file.id)} onChange={event => setSelectedIds(current => { const next = new Set(current); event.target.checked ? next.add(file.id) : next.delete(file.id); return next; })} type="checkbox" /> : null}
               <div className="file-row__main">
                 <button
                   aria-label={`查看 ${file.displayName}`}
@@ -107,6 +142,8 @@ export function FileListPanel({
             </article>
           ))}
         </div>
+      ) : files.length > 0 && !isLoading && !error ? (
+        <p className="message">当前筛选没有匹配文件</p>
       ) : null}
     </Card>
   );

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { Session } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
@@ -619,6 +619,7 @@ describe('App Phase 3 auth shell', () => {
         id: 'file-failed',
         displayName: '访谈记录.pdf',
         currentVersion: {
+          canRetry: true,
           id: 'version-failed',
           mimeType: 'application/pdf',
           sizeBytes: 2048,
@@ -687,7 +688,10 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByText('拖拽或选择 PDF / DOCX')).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: '文件状态中心' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '文件状态中心' })).toBeInTheDocument();
+    expect(screen.getByText('暂无文件状态')).toBeInTheDocument();
+    expect(screen.getByText('拖拽或选择 PDF / DOCX')).toBeInTheDocument();
     expect(screen.queryByText('还没有资料')).not.toBeInTheDocument();
     expect(screen.queryByText('上传后会在这里显示处理状态，并可用于搜索。')).not.toBeInTheDocument();
     expect(screen.getByLabelText('选择 PDF 或 DOCX')).toBeInTheDocument();
@@ -751,7 +755,8 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByText('读取文件失败：workspace membership required')).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: '文件状态中心' })).toBeInTheDocument();
+    expect(screen.getByText('读取文件失败，请稍后重试')).toBeInTheDocument();
     expect(screen.getByLabelText('选择 PDF 或 DOCX')).toBeInTheDocument();
     expect(screen.queryByText('还没有资料')).not.toBeInTheDocument();
   });
@@ -860,6 +865,48 @@ describe('App Phase 3 auth shell', () => {
     expect(screen.getByText(/可搜索 1/)).toBeInTheDocument();
     expect(screen.getByText(/失败 1/)).toBeInTheDocument();
     expect(screen.getByText(/最后刷新：/)).toBeInTheDocument();
+  });
+
+  it('filters failed files and retries them from the status center', async () => {
+    const { authService } = createAuthService(sessionFor('owner@example.test'));
+    const { workspaceService } = createWorkspaceService([
+      { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' }
+    ]);
+    const { uploadService } = createUploadService();
+    const { fileService } = createFileService([
+      {
+        id: 'file-failed',
+        displayName: '状态失败.pdf',
+        currentVersion: {
+          id: 'version-failed',
+          mimeType: 'application/pdf',
+          sizeBytes: 12,
+          status: 'failed',
+          canRetry: true,
+          retryCount: 1,
+          maxRetryCount: 3
+        },
+        updatedAt: '2026-08-17T08:00:00.000Z'
+      }
+    ]);
+
+    render(
+      <App
+        authService={authService}
+        fileService={fileService}
+        uploadService={uploadService}
+        workspaceService={workspaceService}
+      />
+    );
+
+    expect(await screen.findByRole('button', { name: '查看 状态失败.pdf' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '文件状态中心' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '筛选失败 1' }));
+    fireEvent.click(screen.getByRole('button', { name: '重新处理 状态失败.pdf' }));
+
+    await waitFor(() => {
+      expect(fileService.retryFileVersion).toHaveBeenCalledWith('version-failed');
+    });
   });
 
   it('searches files in the selected workspace and shows result snippets', async () => {
@@ -1085,6 +1132,7 @@ describe('App Phase 3 auth shell', () => {
         id: 'file-failed',
         displayName: '失败文件.pdf',
         currentVersion: {
+          canRetry: true,
           id: 'version-failed',
           mimeType: 'application/pdf',
           sizeBytes: 12,
@@ -1152,7 +1200,7 @@ describe('App Phase 3 auth shell', () => {
     fireEvent.click(screen.getByRole('button', { name: '删除选中文件' }));
 
     expect(
-      await screen.findByText('删除文件失败：permission denied。请稍后重试。')
+      await screen.findByText('暂无权限操作当前团队文件，请确认团队权限')
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '查看 删除失败.pdf' })).toBeInTheDocument();
   });
@@ -1168,6 +1216,7 @@ describe('App Phase 3 auth shell', () => {
         id: 'file-failed',
         displayName: '重试失败.pdf',
         currentVersion: {
+          canRetry: true,
           id: 'version-failed',
           mimeType: 'application/pdf',
           sizeBytes: 12,
@@ -1195,8 +1244,122 @@ describe('App Phase 3 auth shell', () => {
     fireEvent.click(screen.getByRole('button', { name: '重新处理选中文件' }));
 
     expect(
-      await screen.findByText('重新处理失败：worker unavailable。请稍后重试。')
+      await screen.findByText('重新处理失败，请稍后重试')
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '查看 重试失败.pdf' })).toBeInTheDocument();
+  });
+
+  it('clears an operation error when the user refreshes the file list', async () => {
+    const { authService } = createAuthService(sessionFor('owner@example.test'));
+    const { workspaceService } = createWorkspaceService([
+      { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' }
+    ]);
+    const { uploadService } = createUploadService();
+    const { fileService } = createFileService([
+      {
+        id: 'file-failed',
+        displayName: '可刷新失败.pdf',
+        currentVersion: {
+          canRetry: true,
+          id: 'version-failed',
+          mimeType: 'application/pdf',
+          sizeBytes: 12,
+          status: 'failed'
+        },
+        updatedAt: '2026-08-17T07:00:00.000Z'
+      }
+    ]);
+    vi.mocked(fileService.retryFileVersion).mockRejectedValueOnce(new Error('worker unavailable'));
+
+    render(
+      <App
+        authService={authService}
+        fileService={fileService}
+        uploadService={uploadService}
+        workspaceService={workspaceService}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: '重新处理选中文件' }));
+    expect(await screen.findByText('重新处理失败，请稍后重试')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '查看 可刷新失败.pdf' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+    await waitFor(() => {
+      expect(screen.queryByText('重新处理失败，请稍后重试')).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: '查看 可刷新失败.pdf' })).toBeInTheDocument();
+  });
+
+  it('ignores a pending retry after switching workspaces and clears its action state', async () => {
+    let resolveRetry: (() => void) | undefined;
+    const { authService } = createAuthService(sessionFor('owner@example.test'));
+    const { workspaceService } = createWorkspaceService([
+      { id: 'workspace-a', name: '研发团队', createdAt: '2026-08-17T00:00:00.000Z' },
+      { id: 'workspace-b', name: '运营团队', createdAt: '2026-08-16T00:00:00.000Z' }
+    ]);
+    const { uploadService } = createUploadService();
+    const fileService: FileService = {
+      getFilePreviewUrl: vi.fn(async () => 'https://storage.example.test/preview'),
+      listFiles: vi.fn(async (workspaceId) =>
+        workspaceId === 'workspace-a'
+          ? [
+              {
+                id: 'file-a',
+                displayName: '研发失败.pdf',
+                currentVersion: {
+                  canRetry: true,
+                  id: 'version-a',
+                  mimeType: 'application/pdf',
+                  sizeBytes: 12,
+                  status: 'failed' as const
+                },
+                updatedAt: '2026-08-17T07:00:00.000Z'
+              }
+            ]
+          : [
+              {
+                id: 'file-b',
+                displayName: '运营资料.pdf',
+                currentVersion: {
+                  id: 'version-b',
+                  mimeType: 'application/pdf',
+                  sizeBytes: 12,
+                  status: 'searchable' as const
+                },
+                updatedAt: '2026-08-17T08:00:00.000Z'
+              }
+            ]
+      ),
+      retryFileVersion: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveRetry = resolve;
+          })
+      ),
+      softDeleteFile: vi.fn(async () => undefined)
+    };
+
+    render(
+      <App
+        authService={authService}
+        fileService={fileService}
+        uploadService={uploadService}
+        workspaceService={workspaceService}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: '重新处理选中文件' }));
+    fireEvent.click(screen.getByRole('button', { name: '团队小组' }));
+    fireEvent.click(screen.getByRole('button', { name: '运营团队' }));
+    expect(await screen.findByRole('button', { name: '查看 运营资料.pdf' })).toBeInTheDocument();
+
+    await act(async () => {
+      resolveRetry?.();
+    });
+
+    expect(fileService.listFiles).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('button', { name: '查看 运营资料.pdf' })).toBeInTheDocument();
+    expect(screen.queryByText('已提交重新处理')).not.toBeInTheDocument();
   });
 });

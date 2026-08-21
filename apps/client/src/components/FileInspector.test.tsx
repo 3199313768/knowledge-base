@@ -20,6 +20,106 @@ afterEach(() => {
 });
 
 describe('FileInspector preview', () => {
+  it('disables retry when the failed version reached the retry limit', () => {
+    render(
+      <FileInspector
+        file={{
+          ...baseFile,
+          currentVersion: {
+            ...baseFile.currentVersion,
+            canRetry: false,
+            maxRetryCount: 3,
+            retryCount: 3,
+            status: 'failed'
+          }
+        }}
+        onDeleteFile={vi.fn(async () => undefined)}
+        onPreviewFile={vi.fn(async () => 'https://storage.example.test/preview')}
+        onRetryFile={vi.fn(async () => undefined)}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: '重新处理选中文件' })).not.toBeInTheDocument();
+  });
+
+  it('shows retry for a failed version while retry metadata allows it', () => {
+    render(
+      <FileInspector
+        file={{
+          ...baseFile,
+          currentVersion: {
+            ...baseFile.currentVersion,
+            canRetry: true,
+            maxRetryCount: 3,
+            retryCount: 2,
+            status: 'failed'
+          }
+        }}
+        onDeleteFile={vi.fn(async () => undefined)}
+        onPreviewFile={vi.fn(async () => 'https://storage.example.test/preview')}
+        onRetryFile={vi.fn(async () => undefined)}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: '重新处理选中文件' })).toBeInTheDocument();
+  });
+
+  it('does not offer retry when retryability metadata is missing', () => {
+    render(
+      <FileInspector
+        file={{
+          ...baseFile,
+          currentVersion: { ...baseFile.currentVersion, status: 'failed' }
+        }}
+        onDeleteFile={vi.fn(async () => undefined)}
+        onPreviewFile={vi.fn(async () => 'https://storage.example.test/preview')}
+        onRetryFile={vi.fn(async () => undefined)}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: '重新处理选中文件' })).not.toBeInTheDocument();
+  });
+
+  it('does not apply a stale retry outcome after the selected file changes', async () => {
+    let resolveRetry: (() => void) | undefined;
+    const onRetryFile = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRetry = resolve;
+        })
+    );
+    const failedFile = {
+      ...baseFile,
+      currentVersion: { ...baseFile.currentVersion, canRetry: true, status: 'failed' as const }
+    };
+    const inspectorProps = {
+      onDeleteFile: vi.fn(async () => undefined),
+      onPreviewFile: vi.fn(async () => 'https://storage.example.test/preview'),
+      onRetryFile
+    };
+    const { rerender } = render(<FileInspector {...inspectorProps} file={failedFile} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '重新处理选中文件' }));
+    rerender(
+      <FileInspector
+        {...inspectorProps}
+        file={{
+          ...failedFile,
+          id: 'file-b',
+          displayName: '另一个失败文件.pdf',
+          currentVersion: { ...failedFile.currentVersion, id: 'version-b' }
+        }}
+      />
+    );
+
+    await act(async () => {
+      resolveRetry?.();
+    });
+
+    expect(screen.queryByText('已提交重新处理')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重新处理选中文件' })).not.toBeDisabled();
+  });
+
   it('creates a protected download link for a DOCX file', async () => {
     const onPreviewFile = vi.fn(async () => 'https://storage.example.test/docx-download');
     render(

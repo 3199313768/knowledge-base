@@ -1,7 +1,7 @@
 import { Button } from './ui/Button';
 import type { WorkspaceSummary } from '../workspaces/workspaceService';
 
-export type SidebarSection = 'files' | 'recent' | 'teams' | 'settings';
+export type SidebarSection = 'files' | 'recent' | 'recycle' | 'teams' | 'settings';
 
 interface AppSidebarProps {
   activeSection: SidebarSection;
@@ -14,15 +14,16 @@ interface AppSidebarProps {
 const navigationItems: Array<{
   id: SidebarSection;
   label: string;
-  icon: 'files' | 'recent' | 'teams' | 'settings';
+  icon: 'files' | 'recent' | 'recycle' | 'teams' | 'settings';
 }> = [
   { id: 'files', label: '所有文件', icon: 'files' },
   { id: 'recent', label: '最近使用', icon: 'recent' },
+  { id: 'recycle', label: '回收站', icon: 'recycle' },
   { id: 'teams', label: '团队小组', icon: 'teams' },
   { id: 'settings', label: '设置', icon: 'settings' }
 ];
 
-function NavIcon({ name }: { name: 'files' | 'recent' | 'teams' | 'settings' }) {
+function NavIcon({ name }: { name: 'files' | 'recent' | 'recycle' | 'teams' | 'settings' }) {
   if (name === 'files') {
     return (
       <svg aria-hidden="true" className="nav-item__icon" fill="none" viewBox="0 0 16 16">
@@ -59,6 +60,10 @@ function NavIcon({ name }: { name: 'files' | 'recent' | 'teams' | 'settings' }) 
         />
       </svg>
     );
+  }
+
+  if (name === 'recycle') {
+    return <span aria-hidden="true" className="nav-item__icon">♲</span>;
   }
 
   return (

@@ -3,6 +3,7 @@ import { MainShell } from './components/MainShell';
 import { defaultAuthService, type AuthService } from './auth/authService';
 import { useAuthSession } from './auth/useAuthSession';
 import { defaultFileService, type FileService } from './files/fileService';
+import { defaultRecycleBinService, type RecycleBinService } from './files/recycleBinService';
 import { defaultSearchService, type SearchService } from './search/searchService';
 import { defaultSearchHistoryService, type SearchHistoryService } from './search/searchHistoryService';
 import {
@@ -18,6 +19,7 @@ import './App.css';
 interface AppProps {
   authService?: AuthService;
   fileService?: FileService;
+  recycleBinService?: RecycleBinService;
   forceAuthPage?: boolean;
   searchHistoryService?: SearchHistoryService;
   searchService?: SearchService;
@@ -28,6 +30,7 @@ interface AppProps {
 export default function App({
   authService = defaultAuthService,
   fileService = defaultFileService,
+  recycleBinService = defaultRecycleBinService,
   forceAuthPage = false,
   searchHistoryService = defaultSearchHistoryService,
   searchService = defaultSearchService,
@@ -72,6 +75,7 @@ export default function App({
       email={session.user.email ?? '当前账号'}
       fileService={fileService}
       onSignOutCurrentDevice={authService.signOutCurrentDevice}
+      recycleBinService={recycleBinService}
       searchHistoryService={searchHistoryService}
       searchService={searchService}
       uploadService={uploadService}

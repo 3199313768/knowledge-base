@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSupabaseBrowserClient } from '../lib/supabaseClient';
 import {
   defaultFileService,
+  FileOperationError,
   formatFileSize,
   formatFileStatus,
   summarizeFileStatuses,
@@ -52,6 +53,24 @@ describe('fileService formatters', () => {
       unknown: 1
     });
   });
+
+});
+
+describe('FileOperationError contract', () => {
+  it('keeps a stable kind, safe message, and retryability', () => {
+    const error = new FileOperationError(
+      'permission',
+      '暂无权限操作当前团队文件，请确认团队权限',
+      false
+    );
+
+    expect(error).toMatchObject({
+      canRetry: false,
+      kind: 'permission',
+      message: '暂无权限操作当前团队文件，请确认团队权限'
+    });
+    expect(error.name).toBe('FileOperationError');
+  });
 });
 
 describe('defaultFileService contract', () => {
@@ -72,6 +91,7 @@ describe('defaultFileService contract', () => {
             {
               id: 'version-a',
               mime_type: 'application/pdf',
+              processing_jobs: [{ attempts: 2 }],
               size_bytes: 1536,
               status: 'searchable'
             }
@@ -92,7 +112,11 @@ describe('defaultFileService contract', () => {
       {
         currentVersion: {
           id: 'version-a',
+          canRetry: false,
+          lastError: null,
+          maxRetryCount: 3,
           mimeType: 'application/pdf',
+          retryCount: 2,
           sizeBytes: 1536,
           status: 'searchable'
         },
@@ -119,6 +143,51 @@ describe('defaultFileService contract', () => {
     });
   });
 
+  it('marks a failed version non-retryable when a processing job reached the retry limit', async () => {
+    const query = {
+      eq: vi.fn(),
+      is: vi.fn(),
+      order: vi.fn(),
+      select: vi.fn()
+    };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.is.mockReturnValue(query);
+    query.order.mockResolvedValue({
+      data: [
+        {
+          current_version: {
+            error_code: 'parse_failed',
+            id: 'version-failed',
+            mime_type: 'application/pdf',
+            processing_jobs: [{ attempts: 3 }],
+            size_bytes: 128,
+            status: 'failed'
+          },
+          display_name: '失败文件.pdf',
+          id: 'file-failed',
+          updated_at: '2026-08-21T08:00:00.000Z'
+        }
+      ],
+      error: null
+    });
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue({
+      from: vi.fn(() => query)
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    await expect(defaultFileService.listFiles('workspace-a')).resolves.toEqual([
+      expect.objectContaining({
+        currentVersion: expect.objectContaining({
+          canRetry: false,
+          lastError: 'parse_failed',
+          maxRetryCount: 3,
+          retryCount: 3,
+          status: 'failed'
+        })
+      })
+    ]);
+  });
+
   it('calls the retry RPC for a failed file version', async () => {
     const rpc = vi.fn(async () => ({ data: null, error: null }));
     vi.mocked(getSupabaseBrowserClient).mockReturnValue({
@@ -129,6 +198,55 @@ describe('defaultFileService contract', () => {
     expect(rpc).toHaveBeenCalledWith('retry_file_version', {
       p_version_id: 'version-a'
     });
+  });
+
+  it('maps a retry-limit RPC failure to a non-retryable safe error', async () => {
+    const rpc = vi.fn(async () => ({
+      data: null,
+      error: { code: 'P0001', message: 'retry limit exceeded; token=secret' }
+    }));
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue({
+      rpc
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    await expect(defaultFileService.retryFileVersion('version-a')).rejects.toEqual(
+      expect.objectContaining({
+        canRetry: false,
+        kind: 'retry_limit',
+        message: '已达到文件重试次数上限，请稍后联系管理员'
+      })
+    );
+  });
+
+  it.each([
+    ['authentication required', 'authentication', '登录状态已失效，请重新登录'],
+    ['file management required', 'permission', '暂无权限操作当前团队文件，请确认团队权限'],
+    ['file version is not failed', 'conflict', '文件当前状态不支持重新处理，请刷新后重试'],
+    ['file version has no failed processing job', 'conflict', '文件当前状态不支持重新处理，请刷新后重试'],
+    ['file version not found', 'not_found', '文件版本不存在或已被删除，请刷新文件列表']
+  ])('maps retry RPC business error %s to a non-retryable stable error', async (message, kind, expectedMessage) => {
+    const rpc = vi.fn(async () => ({ data: null, error: { code: 'P0001', message } }));
+    vi.mocked(getSupabaseBrowserClient).mockReturnValue({
+      rpc
+    } as unknown as ReturnType<typeof getSupabaseBrowserClient>);
+
+    await expect(defaultFileService.retryFileVersion('version-a')).rejects.toEqual(
+      expect.objectContaining({ canRetry: false, kind, message: expectedMessage })
+    );
+  });
+
+  it('maps a browser client configuration failure to a safe file-service error', async () => {
+    vi.mocked(getSupabaseBrowserClient).mockImplementation(() => {
+      throw new Error('Supabase 客户端配置缺失');
+    });
+
+    await expect(defaultFileService.listFiles('workspace-a')).rejects.toEqual(
+      expect.objectContaining({
+        canRetry: true,
+        kind: 'configuration',
+        message: '文件服务暂不可用，请检查应用配置后重试'
+      })
+    );
   });
 
   it('resolves a permission-protected storage path and returns a signed preview URL', async () => {

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FileListPanel } from './FileListPanel';
 import { FileInspector } from './FileInspector';
+import { FileStatusCenter, type FileStatusFilter } from './FileStatusCenter';
 import { SearchPanel } from './SearchPanel';
 import { UploadPanel } from './UploadPanel';
 import { Card } from './ui/Card';
-import type { FileSummary } from '../files/fileService';
+import { summarizeFileStatuses, type FileService, type FileSummary } from '../files/fileService';
 import type { SearchService } from '../search/searchService';
 import type { SearchHistoryService } from '../search/searchHistoryService';
 import type { UploadService } from '../uploads/uploadService';
@@ -12,8 +13,10 @@ import type { WorkspaceSummary } from '../workspaces/workspaceService';
 
 interface WorkspaceDashboardProps {
   currentWorkspace: WorkspaceSummary | null;
-  fileError: string | null;
+  fileActionError: string | null;
+  fileLoadError: string | null;
   files: FileSummary[];
+  fileService: FileService;
   isLoadingFiles: boolean;
   lastRefreshedAt: string | null;
   onDeleteFile: (file: FileSummary) => Promise<void>;
@@ -27,8 +30,10 @@ interface WorkspaceDashboardProps {
 
 export function WorkspaceDashboard({
   currentWorkspace,
-  fileError,
+  fileActionError,
+  fileLoadError,
   files,
+  fileService,
   isLoadingFiles,
   lastRefreshedAt,
   onDeleteFile,
@@ -41,6 +46,7 @@ export function WorkspaceDashboard({
 }: WorkspaceDashboardProps) {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [fileSelectionError, setFileSelectionError] = useState<string | null>(null);
+  const [emptyStatusFilter, setEmptyStatusFilter] = useState<FileStatusFilter>('all');
   const selectedFile = useMemo(
     () => files.find((file) => file.id === selectedFileId) ?? files[0] ?? null,
     [files, selectedFileId]
@@ -102,33 +108,40 @@ export function WorkspaceDashboard({
 
           {isEmpty ? (
             <Card className="files-empty" variant="dashed">
-              {isLoadingFiles ? (
-                <p className="message">正在读取文件…</p>
-              ) : (
-                <>
-                  {fileError ? (
-                    <p className="message message--error">{fileError}</p>
-                  ) : null}
-                  <UploadPanel
-                    onUploadSettled={onRefreshFiles}
-                    uploadService={uploadService}
-                    variant="dropzone"
-                    workspaceId={currentWorkspace.id}
-                  />
-                </>
-              )}
+              <FileStatusCenter
+                error={fileLoadError}
+                files={files}
+                filter={emptyStatusFilter}
+                isLoading={isLoadingFiles}
+                onFilterChange={setEmptyStatusFilter}
+                onRetryFailed={onRetryFile}
+                summary={summarizeFileStatuses(files)}
+              />
+              <UploadPanel
+                onUploadSettled={onRefreshFiles}
+                uploadService={uploadService}
+                variant="dropzone"
+                workspaceId={currentWorkspace.id}
+              />
             </Card>
           ) : (
             <FileListPanel
-              error={fileError}
+              error={fileLoadError}
+              fileService={fileService}
               files={files}
               isLoading={isLoadingFiles}
               lastRefreshedAt={lastRefreshedAt}
               onRefresh={onRefreshFiles}
+              onRetryFile={onRetryFile}
               onSelectFile={setSelectedFileId}
               selectedFileId={selectedFile?.id ?? null}
             />
           )}
+          {fileActionError ? (
+            <p className="message message--error" role="alert">
+              {fileActionError}
+            </p>
+          ) : null}
         </div>
 
           {selectedFile ? (
