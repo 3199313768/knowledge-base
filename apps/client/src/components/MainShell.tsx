@@ -1,5 +1,6 @@
+import { AppShell } from '@oxygen-design/ui';
 import { useEffect, useRef, useState } from 'react';
-import { AppSidebar, type SidebarSection } from './AppSidebar';
+import { AppSidebar, SidebarNavigation, type SidebarSection } from './AppSidebar';
 import { PlaceholderPage } from './PlaceholderPage';
 import { TeamsPage } from './TeamsPage';
 import { WorkspaceDashboard } from './WorkspaceDashboard';
@@ -206,17 +207,24 @@ export function MainShell({
   }
 
   return (
-    <main className="shell">
-      <div className="app-frame">
-        <AppSidebar
-          activeSection={currentSection}
-          currentWorkspace={workspaceState.currentWorkspace}
-          email={email}
-          onNavigate={setActiveSection}
-          onSignOutCurrentDevice={onSignOutCurrentDevice}
-        />
+    <div className="shell">
+      <AppShell
+        mobileNavigation={
+          <SidebarNavigation activeSection={currentSection} onNavigate={setActiveSection} />
+        }
+        sidebar={
+          <AppSidebar
+            activeSection={currentSection}
+            currentWorkspace={workspaceState.currentWorkspace}
+            email={email}
+            onNavigate={setActiveSection}
+            onSignOutCurrentDevice={onSignOutCurrentDevice}
+          />
+        }
+        title="知识库"
+      >
         {mainContent}
-      </div>
-    </main>
+      </AppShell>
+    </div>
   );
 }

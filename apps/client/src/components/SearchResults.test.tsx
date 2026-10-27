@@ -30,6 +30,7 @@ describe('SearchResults', () => {
     );
 
     expect(screen.getByRole('status')).toHaveTextContent('正在搜索…');
+    expect(screen.getByRole('status')).toHaveClass('oxygen-status-message');
   });
 
   it('shows an empty state after a completed search with no matches', () => {
@@ -46,6 +47,7 @@ describe('SearchResults', () => {
 
     expect(screen.getByRole('heading', { name: '没有找到匹配资料' })).toBeInTheDocument();
     expect(screen.getByText('可以换一个关键词，或等待文件处理完成后再试。')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '没有找到匹配资料' }).closest('.oxygen-empty-state')).toBeInTheDocument();
   });
 
   it('shows a safe retry action for a retryable error', () => {

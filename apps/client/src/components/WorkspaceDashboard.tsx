@@ -1,11 +1,10 @@
+import { EmptyState, StatusMessage } from '@oxygen-design/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { FileListPanel } from './FileListPanel';
 import { FileInspector } from './FileInspector';
-import { FileStatusCenter, type FileStatusFilter } from './FileStatusCenter';
 import { SearchPanel } from './SearchPanel';
 import { UploadPanel } from './UploadPanel';
-import { Card } from './ui/Card';
-import { summarizeFileStatuses, type FileService, type FileSummary } from '../files/fileService';
+import type { FileService, FileSummary } from '../files/fileService';
 import type { SearchService } from '../search/searchService';
 import type { SearchHistoryService } from '../search/searchHistoryService';
 import type { UploadService } from '../uploads/uploadService';
@@ -46,7 +45,6 @@ export function WorkspaceDashboard({
 }: WorkspaceDashboardProps) {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [fileSelectionError, setFileSelectionError] = useState<string | null>(null);
-  const [emptyStatusFilter, setEmptyStatusFilter] = useState<FileStatusFilter>('all');
   const selectedFile = useMemo(
     () => files.find((file) => file.id === selectedFileId) ?? files[0] ?? null,
     [files, selectedFileId]
@@ -78,10 +76,12 @@ export function WorkspaceDashboard({
   if (!currentWorkspace) {
     return (
       <section className="content-pane">
-        <Card className="empty-state" variant="dashed">
-          <h2>请先创建或选择团队</h2>
-          <p>资料、上传和搜索都会归属到当前团队。</p>
-        </Card>
+        <div className="empty-state">
+          <EmptyState
+            description="资料、上传和搜索都会归属到当前团队。"
+            title="请先创建或选择团队"
+          />
+        </div>
       </section>
     );
   }
@@ -107,23 +107,24 @@ export function WorkspaceDashboard({
           </div>
 
           {isEmpty ? (
-            <Card className="files-empty" variant="dashed">
-              <FileStatusCenter
-                error={fileLoadError}
-                files={files}
-                filter={emptyStatusFilter}
-                isLoading={isLoadingFiles}
-                onFilterChange={setEmptyStatusFilter}
-                onRetryFailed={onRetryFile}
-                summary={summarizeFileStatuses(files)}
-              />
+            <section className="files-empty" aria-label="团队资料上传">
+              {isLoadingFiles ? <StatusMessage>正在读取团队资料…</StatusMessage> : null}
+              {!isLoadingFiles && fileLoadError ? (
+                <StatusMessage tone="error">{fileLoadError}</StatusMessage>
+              ) : null}
+              {!isLoadingFiles && !fileLoadError ? (
+                <div className="files-empty__intro">
+                  <h2>还没有团队资料</h2>
+                  <p>上传 PDF 或 DOCX。处理完成后就可以搜索。</p>
+                </div>
+              ) : null}
               <UploadPanel
                 onUploadSettled={onRefreshFiles}
                 uploadService={uploadService}
                 variant="dropzone"
                 workspaceId={currentWorkspace.id}
               />
-            </Card>
+            </section>
           ) : (
             <FileListPanel
               error={fileLoadError}
@@ -138,9 +139,7 @@ export function WorkspaceDashboard({
             />
           )}
           {fileActionError ? (
-            <p className="message message--error" role="alert">
-              {fileActionError}
-            </p>
+            <StatusMessage tone="error">{fileActionError}</StatusMessage>
           ) : null}
         </div>
 
@@ -153,9 +152,7 @@ export function WorkspaceDashboard({
           />
         ) : null}
         {fileSelectionError ? (
-          <p className="message message--error" role="alert">
-            {fileSelectionError}
-          </p>
+          <StatusMessage tone="error">{fileSelectionError}</StatusMessage>
         ) : null}
       </div>
     </section>

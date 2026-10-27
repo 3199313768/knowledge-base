@@ -20,13 +20,14 @@ describe('SearchHistory', () => {
     render(<SearchHistory items={[]} isLoading onClear={vi.fn()} onSelect={vi.fn()} />);
 
     expect(screen.getByRole('status')).toHaveTextContent('正在读取搜索历史…');
+    expect(screen.getByRole('status')).toHaveClass('oxygen-status-message');
   });
 
-  it('shows an empty state when there is no history', () => {
+  it('does not render a history section when there is no history', () => {
     render(<SearchHistory items={[]} isLoading={false} onClear={vi.fn()} onSelect={vi.fn()} />);
 
-    expect(screen.getByText('暂无搜索历史')).toBeInTheDocument();
-    expect(screen.getByText('成功搜索后会显示在这里。')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '搜索历史' })).not.toBeInTheDocument();
+    expect(screen.queryByText('暂无搜索历史')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '清空搜索历史' })).not.toBeInTheDocument();
   });
 

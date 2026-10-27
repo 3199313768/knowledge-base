@@ -11,6 +11,7 @@ describe('RecycleBinPage', () => {
     const service: RecycleBinService = { listDeletedFiles: vi.fn(async () => []), restoreFile: vi.fn(), permanentlyDeleteFile: vi.fn() };
     render(<RecycleBinPage currentWorkspace={{ id: 'workspace-1', name: '远算', createdAt: '' }} service={service} />);
     expect(await screen.findByRole('heading', { name: '回收站为空' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '回收站为空' }).closest('.oxygen-empty-state')).toBeInTheDocument();
   });
 
   it('restores and confirms permanent deletion', async () => {
@@ -21,7 +22,7 @@ describe('RecycleBinPage', () => {
     };
     render(<RecycleBinPage currentWorkspace={{ id: 'workspace-1', name: '远算', createdAt: '' }} service={service} />);
     fireEvent.click(await screen.findByRole('button', { name: '永久删除' }));
-    expect(screen.getByRole('dialog', { name: '永久删除文件？' })).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog', { name: '永久删除文件？' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '取消' }));
     fireEvent.click(screen.getByRole('button', { name: '恢复文件' }));
     await waitFor(() => expect(service.restoreFile).toHaveBeenCalledWith('file-1'));

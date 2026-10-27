@@ -76,6 +76,7 @@ describe('FileStatusCenter', () => {
     );
 
     expect(screen.getByText(message)).toBeInTheDocument();
+    expect(screen.getByText(message).closest('.oxygen-status-message')).toBeInTheDocument();
   });
 
   it('renders a useful empty state when there are no files', () => {
@@ -91,6 +92,7 @@ describe('FileStatusCenter', () => {
 
     expect(screen.getByText('暂无文件状态')).toBeInTheDocument();
     expect(screen.getByText('上传文件后，这里会显示处理进度和失败重试入口。')).toBeInTheDocument();
+    expect(screen.getByText('暂无文件状态').closest('.oxygen-empty-state')).toBeInTheDocument();
   });
 
   it('retries a failed file once and disables duplicate clicks while pending', async () => {

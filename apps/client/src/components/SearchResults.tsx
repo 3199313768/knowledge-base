@@ -1,3 +1,4 @@
+import { EmptyState, StatusMessage } from '@oxygen-design/ui';
 import type { SearchErrorKind, SearchResultSummary } from '../search/searchService';
 import { Button } from './ui/Button';
 import { SearchResultItem } from './SearchResultItem';
@@ -22,11 +23,7 @@ export function SearchResults({
   onOpenFile
 }: SearchResultsProps) {
   if (isLoading) {
-    return (
-      <p className="message" role="status">
-        正在搜索…
-      </p>
-    );
+    return <StatusMessage>正在搜索…</StatusMessage>;
   }
 
   if (errorKind) {
@@ -37,22 +34,26 @@ export function SearchResults({
       unknown: '搜索失败，请稍后重试'
     };
     return (
-      <div className="message message--error" role="alert">
-        <span>{error ?? errorMessages[errorKind]}</span>
-        {onRetry ? (
+      <StatusMessage
+        action={onRetry ? (
           <Button aria-label="重试搜索" onClick={onRetry} variant="link">
             重试搜索
           </Button>
         ) : null}
-      </div>
+        tone="error"
+      >
+        {error ?? errorMessages[errorKind]}
+      </StatusMessage>
     );
   }
 
   if (query && results.length === 0) {
     return (
       <div className="search-empty">
-        <h3>没有找到匹配资料</h3>
-        <p>可以换一个关键词，或等待文件处理完成后再试。</p>
+        <EmptyState
+          description="可以换一个关键词，或等待文件处理完成后再试。"
+          title="没有找到匹配资料"
+        />
       </div>
     );
   }

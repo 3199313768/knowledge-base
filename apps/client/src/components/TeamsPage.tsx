@@ -1,3 +1,4 @@
+import { PageHeader } from '@oxygen-design/ui';
 import { WorkspacePanel } from './WorkspacePanel';
 import { Card } from './ui/Card';
 import type { WorkspaceSummary } from '../workspaces/workspaceService';
@@ -23,9 +24,7 @@ export function TeamsPage({
 }: TeamsPageProps) {
   return (
     <section className="content-pane" aria-label="团队小组">
-      <header className="workbench-header">
-        <h2>团队小组</h2>
-      </header>
+      <PageHeader title="团队小组" />
       <Card className="section-card">
         <WorkspacePanel
           currentWorkspace={currentWorkspace}

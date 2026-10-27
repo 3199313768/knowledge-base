@@ -1,4 +1,4 @@
-import { Card } from './ui/Card';
+import { EmptyState, PageHeader } from '@oxygen-design/ui';
 
 interface PlaceholderPageProps {
   description: string;
@@ -9,12 +9,11 @@ export function PlaceholderPage({ description, title }: PlaceholderPageProps) {
   return (
     <section className="content-pane" aria-label={title}>
       <header className="workbench-header">
-        <h2>{title}</h2>
+        <PageHeader title={title} />
       </header>
-      <Card className="empty-state" variant="dashed">
-        <h2>{title}</h2>
-        <p>{description}</p>
-      </Card>
+      <div className="empty-state">
+        <EmptyState description={description} title={title} />
+      </div>
     </section>
   );
 }

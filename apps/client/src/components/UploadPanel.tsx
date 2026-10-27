@@ -1,3 +1,4 @@
+import { StatusMessage } from '@oxygen-design/ui';
 import { useId, useRef, useState } from 'react';
 import { useUploadQueue } from '../uploads/useUploadQueue';
 import { Button } from './ui/Button';
@@ -76,15 +77,15 @@ export function UploadPanel({
 
   const statusMessages = (
     <>
-      {uploadState.isUploading ? <p className="message">正在上传…</p> : null}
+      {uploadState.isUploading ? <div className="message"><StatusMessage>正在上传…</StatusMessage></div> : null}
       {uploadState.error ? (
-        <p className="message message--error">{uploadState.error}</p>
+        <div className="message message--error"><StatusMessage tone="error">{uploadState.error}</StatusMessage></div>
       ) : null}
       {uploadState.lastResult?.outcome === 'uploaded' && uploadState.lastFileName ? (
-        <p className="message message--notice">上传完成：{uploadState.lastFileName}</p>
+        <div className="message message--notice"><StatusMessage tone="success">上传完成：{uploadState.lastFileName}</StatusMessage></div>
       ) : null}
       {uploadState.lastResult?.outcome === 'duplicate' && uploadState.lastFileName ? (
-        <p className="message message--notice">文件已存在：{uploadState.lastFileName}</p>
+        <div className="message message--notice"><StatusMessage tone="warning">文件已存在：{uploadState.lastFileName}</StatusMessage></div>
       ) : null}
     </>
   );

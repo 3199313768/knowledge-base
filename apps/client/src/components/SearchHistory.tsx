@@ -1,3 +1,4 @@
+import { StatusMessage } from '@oxygen-design/ui';
 import { Button } from './ui/Button';
 import type { SearchHistoryItem } from '../search/searchHistoryService';
 
@@ -20,6 +21,10 @@ export function SearchHistory({
   onRetry,
   onSelect
 }: SearchHistoryProps) {
+  if (!isLoading && !error && items.length === 0) {
+    return null;
+  }
+
   return (
     <section className="search-history" aria-label="搜索历史">
       <div className="search-history__header">
@@ -37,26 +42,23 @@ export function SearchHistory({
       </div>
 
       {isLoading ? (
-        <p className="search-history__status" role="status">
-          正在读取搜索历史…
-        </p>
-      ) : null}
-
-      {!isLoading && error ? (
-        <div className="search-history__error" role="alert">
-          <p>{error}</p>
-          {onRetry ? (
-            <Button onClick={onRetry} variant="link">
-              重试读取搜索历史
-            </Button>
-          ) : null}
+        <div className="search-history__status">
+          <StatusMessage>正在读取搜索历史…</StatusMessage>
         </div>
       ) : null}
 
-      {!isLoading && !error && items.length === 0 ? (
-        <div className="search-history__empty">
-          <p>暂无搜索历史</p>
-          <span>成功搜索后会显示在这里。</span>
+      {!isLoading && error ? (
+        <div className="search-history__error">
+          <StatusMessage
+            action={onRetry ? (
+              <Button onClick={onRetry} variant="link">
+                重试读取搜索历史
+              </Button>
+            ) : null}
+            tone="error"
+          >
+            {error}
+          </StatusMessage>
         </div>
       ) : null}
 

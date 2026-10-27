@@ -1,66 +1,79 @@
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import type { Session } from '@supabase/supabase-js';
+import {
+  Alert,
+  AlertDescription,
+  Field,
+  FieldError,
+  Label,
+} from '@oxygen-design/ui';
 import type { AuthCredentials, SignUpResult } from '../auth/authService';
+import { Button } from './ui/Button';
+import { Card } from './ui/Card';
+import { PasswordInput } from './ui/PasswordInput';
+import { TextInput } from './ui/TextInput';
 
 interface AuthCardProps {
+  authError?: string | null;
   existingSession: Session | null;
   onSignIn: (credentials: AuthCredentials) => Promise<void>;
   onSignOutCurrentDevice: () => Promise<void>;
   onSignUp: (credentials: AuthCredentials) => Promise<SignUpResult>;
+  onRetry?: () => void;
 }
 
 function messageFrom(error: unknown) {
   return error instanceof Error ? error.message : '认证操作失败';
 }
 
+type AuthMode = 'sign-in' | 'sign-up';
+
+const emailPattern = /^[^\s@]+@[^\s@]+$/;
+
+const copyByMode: Record<AuthMode, { title: string; description: string }> = {
+  'sign-in': {
+    title: '欢迎回来',
+    description: '登录后继续查找和整理团队资料。'
+  },
+  'sign-up': {
+    title: '创建账号',
+    description: '使用邮箱和密码创建账号，用来登录团队资料。'
+  }
+};
+
 export function AuthCard({
+  authError = null,
   existingSession,
   onSignIn,
   onSignOutCurrentDevice,
-  onSignUp
+  onSignUp,
+  onRetry
 }: AuthCardProps) {
-  const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<AuthMode>('sign-in');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const {
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+    reset
+  } = useForm<AuthCredentials>({
+    defaultValues: { email: '', password: '' },
+    mode: 'onSubmit'
+  });
 
   const isSignUp = mode === 'sign-up';
+  const isBusy = isSubmitting || isSigningOut;
+  const copy = copyByMode[mode];
 
-  function validate() {
-    if (!email.trim()) {
-      return '请输入邮箱';
-    }
-
-    if (!password) {
-      return '请输入密码';
-    }
-
-    if (password.length < 6) {
-      return '密码至少 6 位';
-    }
-
-    return null;
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const submit = handleSubmit(async ({ email, password }) => {
     setError(null);
     setNotice(null);
 
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
-    setIsSubmitting(true);
     try {
-      const credentials = {
-        email: email.trim(),
-        password
-      };
+      const credentials = { email, password };
 
       if (isSignUp) {
         const result = await onSignUp(credentials);
@@ -72,107 +85,132 @@ export function AuthCard({
       }
     } catch (caughtError) {
       setError(messageFrom(caughtError));
-    } finally {
-      setIsSubmitting(false);
     }
-  }
+  });
 
   async function handleSignOutCurrentDevice() {
     setError(null);
     setNotice(null);
-    setIsSubmitting(true);
+    setIsSigningOut(true);
     try {
       await onSignOutCurrentDevice();
     } catch (caughtError) {
       setError(messageFrom(caughtError));
     } finally {
-      setIsSubmitting(false);
+      setIsSigningOut(false);
     }
+  }
+
+  function switchMode(nextMode: AuthMode) {
+    reset();
+    setError(null);
+    setNotice(null);
+    setMode(nextMode);
   }
 
   return (
     <main className="auth-page">
-      <section className="auth-card" aria-labelledby="auth-title">
+      <Card className="auth-card" aria-labelledby="auth-title">
+        <div className="auth-brand" aria-label="知识库">
+          <span className="auth-brand__mark" aria-hidden="true">K</span>
+          <span className="auth-brand__name">知识库</span>
+        </div>
         <div className="auth-card__header">
           <div>
-            <p className="eyebrow">Phase 3</p>
-            <h1 id="auth-title">登录知识库</h1>
-            <p className="auth-card__description">
-              使用邮箱和密码进入当前设备的知识库会话。
-            </p>
+            <h1 id="auth-title">{copy.title}</h1>
+            <p className="auth-card__description">{copy.description}</p>
           </div>
           {existingSession ? (
-            <button
-              className="button button--ghost"
-              disabled={isSubmitting}
+            <Button
+              disabled={isBusy}
               onClick={handleSignOutCurrentDevice}
-              type="button"
+              variant="ghost"
             >
-              退出当前设备
-            </button>
+              {isSigningOut ? '正在退出…' : '退出当前设备'}
+            </Button>
           ) : null}
         </div>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="field">
-            <span>邮箱</span>
-            <input
+        {authError ? (
+          <Alert className="message message--error auth-card__service-error" tone="error">
+            <AlertDescription>{authError}</AlertDescription>
+            {onRetry ? <Button disabled={isBusy} onClick={onRetry} variant="link">重试</Button> : null}
+          </Alert>
+        ) : null}
+
+        <form className="auth-form" noValidate onSubmit={submit}>
+          <Field className="field">
+            <Label htmlFor="auth-email">邮箱</Label>
+            <TextInput
+              aria-describedby={errors.email ? 'auth-email-error' : undefined}
+              aria-invalid={errors.email ? 'true' : 'false'}
               autoComplete="email"
+              disabled={isBusy}
+              id="auth-email"
               inputMode="email"
-              onChange={(event) => setEmail(event.target.value)}
               placeholder="you@example.com"
+              required
               type="email"
-              value={email}
+              {...register('email', {
+                required: '请输入邮箱',
+                setValueAs: (value: string) => value.trim(),
+                pattern: { value: emailPattern, message: '请输入有效邮箱' }
+              })}
             />
-          </label>
+            <FieldError className="field__error" id="auth-email-error">
+              {errors.email?.message}
+            </FieldError>
+          </Field>
 
-          <label className="field">
-            <span>密码</span>
-            <input
+          <Field className="field">
+            <Label htmlFor="auth-password">密码</Label>
+            <PasswordInput
+              key={mode}
+              aria-describedby={errors.password ? 'auth-password-error' : undefined}
+              aria-invalid={errors.password ? 'true' : 'false'}
               autoComplete={isSignUp ? 'new-password' : 'current-password'}
-              onChange={(event) => setPassword(event.target.value)}
+              disabled={isBusy}
+              id="auth-password"
               placeholder="至少 6 位"
-              type="password"
-              value={password}
+              required
+              {...register('password', {
+                required: '请输入密码',
+                minLength: { value: 6, message: '密码至少 6 位' }
+              })}
             />
-          </label>
+            <FieldError className="field__error" id="auth-password-error">
+              {errors.password?.message}
+            </FieldError>
+          </Field>
 
-          {error ? <p className="message message--error">{error}</p> : null}
-          {notice ? <p className="message message--notice">{notice}</p> : null}
+          {error ? <Alert className="message message--error" tone="error">{error}</Alert> : null}
+          {notice ? <Alert className="message message--notice" tone="success">{notice}</Alert> : null}
 
-          <button className="button button--primary" disabled={isSubmitting}>
-            {isSignUp ? '创建账号' : '登录'}
-          </button>
+          <Button disabled={isBusy} type="submit" variant="primary">
+            {isSubmitting
+              ? (isSignUp ? '正在创建…' : '正在登录…')
+              : (isSignUp ? '创建账号' : '登录')}
+          </Button>
         </form>
 
         <div className="auth-switch">
           {isSignUp ? (
-            <button
-              className="button button--link"
-              onClick={() => {
-                setMode('sign-in');
-                setError(null);
-                setNotice(null);
-              }}
-              type="button"
-            >
-              返回登录
-            </button>
+            <>
+              <span>已有账号？</span>{' '}
+              <Button disabled={isBusy} onClick={() => switchMode('sign-in')} variant="link">
+                返回登录
+              </Button>
+            </>
           ) : (
-            <button
-              className="button button--link"
-              onClick={() => {
-                setMode('sign-up');
-                setError(null);
-                setNotice(null);
-              }}
-              type="button"
-            >
-              注册新账号
-            </button>
+            <>
+              <span>还没有账号？</span>{' '}
+              <Button disabled={isBusy} onClick={() => switchMode('sign-up')} variant="link">
+                创建账号
+              </Button>
+            </>
           )}
         </div>
-      </section>
+      </Card>
     </main>
   );
 }

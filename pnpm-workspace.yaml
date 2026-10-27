@@ -12,3 +12,4 @@ allowBuilds:
 # window elapses. Keep the policy enabled and exempt only this exact version.
 minimumReleaseAgeExclude:
   - node-releases@2.0.52
+  - '@oxygen-design/ui@0.1.0'

@@ -1,3 +1,4 @@
+import { StatusMessage } from '@oxygen-design/ui';
 import { useEffect, useRef, useState } from 'react';
 import {
   formatFileSize,
@@ -199,9 +200,7 @@ export function FileInspector({
           <p>当前文件类型暂不支持预览。</p>
         )}
         {previewError ? (
-          <p className="message message--error" role="alert">
-            {previewError}
-          </p>
+          <StatusMessage tone="error">{previewError}</StatusMessage>
         ) : null}
       </section>
 
@@ -218,9 +217,7 @@ export function FileInspector({
           </Button>
         ) : null}
         {retryOutcome ? (
-          <p aria-live="polite" className="message" role="status">
-            {retryOutcome}
-          </p>
+          <StatusMessage aria-live="polite">{retryOutcome}</StatusMessage>
         ) : null}
         <Button aria-label="删除选中文件" onClick={() => void onDeleteFile(file)} variant="ghost">
           删除

@@ -1,3 +1,4 @@
+import { StatusMessage } from '@oxygen-design/ui';
 import { AuthCard } from './components/AuthCard';
 import { MainShell } from './components/MainShell';
 import { defaultAuthService, type AuthService } from './auth/authService';
@@ -14,6 +15,7 @@ import {
   defaultWorkspaceService,
   type WorkspaceService
 } from './workspaces/workspaceService';
+import { Card } from './components/ui/Card';
 import './App.css';
 
 interface AppProps {
@@ -37,25 +39,32 @@ export default function App({
   uploadService = defaultUploadService,
   workspaceService = defaultWorkspaceService
 }: AppProps) {
-  const { error, isLoading, session } = useAuthSession(authService);
+  const { error, isLoading, retry, session } = useAuthSession(authService);
 
   if (isLoading) {
     return (
       <main className="auth-page">
-        <section className="auth-card">
-          <p>正在读取当前设备会话…</p>
-        </section>
+        <Card className="auth-card auth-loading">
+          <div className="auth-brand" aria-label="知识库">
+            <span className="auth-brand__mark" aria-hidden="true">K</span>
+            <span className="auth-brand__name">知识库</span>
+          </div>
+          <StatusMessage aria-live="polite">正在读取当前设备会话…</StatusMessage>
+        </Card>
       </main>
     );
   }
 
   if (error) {
     return (
-      <main className="auth-page">
-        <section className="auth-card">
-          <p className="message message--error">{error}</p>
-        </section>
-      </main>
+      <AuthCard
+        authError={error}
+        existingSession={session}
+        onRetry={retry}
+        onSignIn={authService.signInWithPassword}
+        onSignOutCurrentDevice={authService.signOutCurrentDevice}
+        onSignUp={authService.signUpWithPassword}
+      />
     );
   }
 

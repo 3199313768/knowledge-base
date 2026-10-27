@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@oxygen-design/ui": "0.1.0",
     "@supabase/supabase-js": "^2.112.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/api": "^2",
@@ -20,6 +21,7 @@
     "clsx": "^2.1.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-hook-form": "^7.91.0",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3"
   },

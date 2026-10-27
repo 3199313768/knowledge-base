@@ -1,3 +1,4 @@
+import { EmptyState, StatusMessage } from '@oxygen-design/ui';
 import { useState } from 'react';
 import {
   toFileOperationError,
@@ -117,17 +118,17 @@ export function FileStatusCenter({
         })}
       </div>
 
-      {isLoading ? <p className="message">正在读取文件状态…</p> : null}
+      {isLoading ? <StatusMessage>正在读取文件状态…</StatusMessage> : null}
       {error ? (
-        <p className="message message--error" role="alert">
-          {error}
-        </p>
+        <StatusMessage tone="error">{error}</StatusMessage>
       ) : null}
 
       {!isLoading && !error && !hasFiles ? (
         <div className="file-status-center__empty">
-          <p>暂无文件状态</p>
-          <span>上传文件后，这里会显示处理进度和失败重试入口。</span>
+          <EmptyState
+            description="上传文件后，这里会显示处理进度和失败重试入口。"
+            title="暂无文件状态"
+          />
         </div>
       ) : null}
 

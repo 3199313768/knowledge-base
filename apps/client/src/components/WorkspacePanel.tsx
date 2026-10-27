@@ -1,3 +1,4 @@
+import { Field, Label, StatusMessage } from '@oxygen-design/ui';
 import { FormEvent, useState } from 'react';
 import { Button } from './ui/Button';
 import { TextInput } from './ui/TextInput';
@@ -35,7 +36,7 @@ export function WorkspacePanel({
   if (isLoading) {
     return (
       <section className="workspace-panel">
-        <p>正在读取团队…</p>
+        <StatusMessage>正在读取团队…</StatusMessage>
       </section>
     );
   }
@@ -55,7 +56,7 @@ export function WorkspacePanel({
         ) : null}
       </div>
 
-      {error ? <p className="message message--error">{error}</p> : null}
+      {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 
       {workspaces.length > 0 ? (
         <div className="workspace-list" aria-label="团队列表">
@@ -82,15 +83,16 @@ export function WorkspacePanel({
 
       {showCreateForm ? (
         <form className="workspace-create" onSubmit={handleCreateWorkspace}>
-          <label className="field">
-            <span>团队名称</span>
+          <Field className="field">
+            <Label htmlFor="workspace-name">团队名称</Label>
             <TextInput
+              id="workspace-name"
               onChange={(event) => setWorkspaceName(event.target.value)}
               placeholder="例如：产品知识库"
               type="text"
               value={workspaceName}
             />
-          </label>
+          </Field>
           <div className="workspace-create__actions">
             {workspaces.length > 0 ? (
               <Button

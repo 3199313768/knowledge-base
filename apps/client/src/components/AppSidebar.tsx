@@ -1,3 +1,4 @@
+import { Clock3, Files, Settings, Trash2, Users } from '@oxygen-design/ui';
 import { Button } from './ui/Button';
 import type { WorkspaceSummary } from '../workspaces/workspaceService';
 
@@ -24,58 +25,44 @@ const navigationItems: Array<{
 ];
 
 function NavIcon({ name }: { name: 'files' | 'recent' | 'recycle' | 'teams' | 'settings' }) {
-  if (name === 'files') {
-    return (
-      <svg aria-hidden="true" className="nav-item__icon" fill="none" viewBox="0 0 16 16">
-        <path
-          d="M2.5 4.5h4l1.2 1.2H13.5v7.3a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1Z"
-          stroke="currentColor"
-          strokeLinejoin="round"
-          strokeWidth="1.4"
-        />
-      </svg>
-    );
-  }
+  const Icon = {
+    files: Files,
+    recent: Clock3,
+    recycle: Trash2,
+    teams: Users,
+    settings: Settings,
+  }[name];
 
-  if (name === 'recent') {
-    return (
-      <svg aria-hidden="true" className="nav-item__icon" fill="none" viewBox="0 0 16 16">
-        <circle cx="8" cy="8" r="5.25" stroke="currentColor" strokeWidth="1.4" />
-        <path d="M8 5v3.2L10 10" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
-      </svg>
-    );
-  }
+  return <Icon aria-hidden="true" className="nav-item__icon" />;
+}
 
-  if (name === 'teams') {
-    return (
-      <svg aria-hidden="true" className="nav-item__icon" fill="none" viewBox="0 0 16 16">
-        <circle cx="8" cy="5.2" r="2" stroke="currentColor" strokeWidth="1.4" />
-        <circle cx="4.2" cy="6.2" r="1.5" stroke="currentColor" strokeWidth="1.3" />
-        <circle cx="11.8" cy="6.2" r="1.5" stroke="currentColor" strokeWidth="1.3" />
-        <path
-          d="M3 12.5c.4-1.8 1.9-2.8 5-2.8s4.6 1 5 2.8"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeWidth="1.4"
-        />
-      </svg>
-    );
-  }
+interface SidebarNavigationProps {
+  activeSection: SidebarSection;
+  onNavigate: (section: SidebarSection) => void;
+}
 
-  if (name === 'recycle') {
-    return <span aria-hidden="true" className="nav-item__icon">♲</span>;
-  }
-
+export function SidebarNavigation({ activeSection, onNavigate }: SidebarNavigationProps) {
   return (
-    <svg aria-hidden="true" className="nav-item__icon" fill="none" viewBox="0 0 16 16">
-      <circle cx="8" cy="8" r="2.2" stroke="currentColor" strokeWidth="1.4" />
-      <path
-        d="M8 2.4v1.4M8 12.2v1.4M2.4 8h1.4M12.2 8h1.4M3.9 3.9l1 1M11.1 11.1l1 1M12.1 3.9l-1 1M4.9 11.1l-1 1"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="1.4"
-      />
-    </svg>
+    <nav className="app-nav" aria-label="应用导航">
+      {navigationItems.map((item) => {
+        const isActive = activeSection === item.id;
+
+        return (
+          <Button
+            aria-current={isActive ? 'page' : undefined}
+            className={isActive ? 'nav-item nav-item--active' : 'nav-item'}
+            key={item.id}
+            onClick={() => onNavigate(item.id)}
+            variant="nav"
+          >
+            <span className="nav-item__label">
+              <NavIcon name={item.icon} />
+              <span>{item.label}</span>
+            </span>
+          </Button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -105,26 +92,7 @@ export function AppSidebar({
         ) : null}
       </div>
 
-      <nav className="app-nav" aria-label="应用导航">
-        {navigationItems.map((item) => {
-          const isActive = activeSection === item.id;
-
-          return (
-            <Button
-              aria-current={isActive ? 'page' : undefined}
-              className={isActive ? 'nav-item nav-item--active' : 'nav-item'}
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              variant="nav"
-            >
-              <span className="nav-item__label">
-                <NavIcon name={item.icon} />
-                <span>{item.label}</span>
-              </span>
-            </Button>
-          );
-        })}
-      </nav>
+      <SidebarNavigation activeSection={activeSection} onNavigate={onNavigate} />
 
       <div className="account-card account-card--footer">
         <span className="account-card__email">{email}</span>

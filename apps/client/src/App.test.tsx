@@ -148,19 +148,190 @@ describe('App Phase 3 auth shell', () => {
 
     render(<App authService={authService} />);
 
-    expect(await screen.findByRole('heading', { name: '登录知识库' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '欢迎回来' })).toBeInTheDocument();
+    expect(screen.getByText('知识库')).toBeInTheDocument();
+    expect(screen.getByText('登录后继续查找和整理团队资料。')).toBeInTheDocument();
+    expect(screen.queryByText('Phase 3')).not.toBeInTheDocument();
     expect(screen.getByLabelText('邮箱')).toBeInTheDocument();
-    expect(screen.getByLabelText('密码')).toBeInTheDocument();
+    expect(screen.getByLabelText('密码')).toHaveAttribute('type', 'password');
+    expect(screen.getByRole('button', { name: '显示密码' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('button', { name: '登录' })).toBeInTheDocument();
+  });
+
+  it('toggles password visibility without submitting the form', async () => {
+    const { authService } = createAuthService();
+
+    render(<App authService={authService} />);
+    await screen.findByRole('heading', { name: '欢迎回来' });
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: '显示密码' }));
+
+    expect(screen.getByLabelText('密码')).toHaveAttribute('type', 'text');
+    expect(screen.getByRole('button', { name: '隐藏密码' })).toHaveAttribute('aria-pressed', 'true');
+    expect(authService.signInWithPassword).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: '隐藏密码' }));
+    expect(screen.getByLabelText('密码')).toHaveAttribute('type', 'password');
+
+    fireEvent.click(screen.getByRole('button', { name: '显示密码' }));
+    fireEvent.click(screen.getByRole('button', { name: '创建账号' }));
+    expect(screen.getByLabelText('密码')).toHaveAttribute('type', 'password');
+    expect(screen.getByRole('button', { name: '显示密码' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('announces session loading inside the authentication shell', () => {
+    const authService: AuthService = {
+      getCurrentSession: vi.fn(() => new Promise<Session | null>(() => undefined)),
+      onSessionChange: vi.fn(() => ({ unsubscribe: vi.fn() })),
+      signInWithPassword: vi.fn(),
+      signUpWithPassword: vi.fn(),
+      signOutCurrentDevice: vi.fn()
+    };
+
+    render(<App authService={authService} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('正在读取当前设备会话…');
+    expect(screen.getByText('知识库')).toBeInTheDocument();
+  });
+
+  it('shows accessible field errors before authentication', async () => {
+    const { authService } = createAuthService();
+
+    render(<App authService={authService} />);
+    await screen.findByRole('heading', { name: '欢迎回来' });
+
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
+
+    expect(await screen.findByText('请输入邮箱')).toBeInTheDocument();
+    expect(screen.getByLabelText('邮箱')).toHaveAttribute('aria-invalid', 'true');
+    expect(authService.signInWithPassword).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['   ', '请输入邮箱'],
+    ['not-an-email', '请输入有效邮箱']
+  ])('rejects invalid email input %j', async (email, expectedMessage) => {
+    const { authService } = createAuthService();
+
+    render(<App authService={authService} />);
+    await screen.findByRole('heading', { name: '欢迎回来' });
+    fireEvent.change(screen.getByLabelText('邮箱'), {
+      target: { value: email }
+    });
+    fireEvent.change(screen.getByLabelText('密码'), {
+      target: { value: 'password123' }
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
+
+    expect(await screen.findByText(expectedMessage)).toBeInTheDocument();
+    expect(authService.signInWithPassword).not.toHaveBeenCalled();
+  });
+
+  it('normalizes the email before authentication', async () => {
+    const { authService } = createAuthService();
+
+    render(<App authService={authService} />);
+    await screen.findByRole('heading', { name: '欢迎回来' });
+    fireEvent.change(screen.getByLabelText('邮箱'), {
+      target: { value: '  me@example.test  ' }
+    });
+    fireEvent.change(screen.getByLabelText('密码'), {
+      target: { value: 'password123' }
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
+
+    await waitFor(() => {
+      expect(authService.signInWithPassword).toHaveBeenCalledWith({
+        email: 'me@example.test',
+        password: 'password123'
+      });
+    });
+  });
+
+  it('rejects a password shorter than six characters', async () => {
+    const { authService } = createAuthService();
+
+    render(<App authService={authService} />);
+    await screen.findByRole('heading', { name: '欢迎回来' });
+    fireEvent.change(screen.getByLabelText('邮箱'), {
+      target: { value: 'me@example.test' }
+    });
+    fireEvent.change(screen.getByLabelText('密码'), {
+      target: { value: '12345' }
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
+
+    expect(await screen.findByText('密码至少 6 位')).toBeInTheDocument();
+    expect(screen.getByLabelText('密码')).toHaveAttribute('aria-invalid', 'true');
+    expect(authService.signInWithPassword).not.toHaveBeenCalled();
+  });
+
+  it('keeps the login form visible when authentication fails', async () => {
+    const { authService } = createAuthService();
+    vi.mocked(authService.signInWithPassword).mockRejectedValueOnce(
+      new Error('邮箱或密码不正确，请重试。')
+    );
+
+    render(<App authService={authService} />);
+    await screen.findByRole('heading', { name: '欢迎回来' });
+    fireEvent.change(screen.getByLabelText('邮箱'), {
+      target: { value: 'me@example.test' }
+    });
+    fireEvent.change(screen.getByLabelText('密码'), {
+      target: { value: 'password123' }
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('邮箱或密码不正确，请重试。');
+    expect(screen.getByRole('heading', { name: '欢迎回来' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '登录' })).toBeEnabled();
+  });
+
+  it('disables the form while sign in is pending', async () => {
+    let resolveSignIn!: () => void;
+    const { authService } = createAuthService();
+    vi.mocked(authService.signInWithPassword).mockImplementation(
+      () => new Promise<void>((resolve) => {
+        resolveSignIn = resolve;
+      })
+    );
+
+    render(<App authService={authService} />);
+    await screen.findByRole('heading', { name: '欢迎回来' });
+    fireEvent.change(screen.getByLabelText('邮箱'), {
+      target: { value: 'me@example.test' }
+    });
+    fireEvent.change(screen.getByLabelText('密码'), {
+      target: { value: 'password123' }
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '登录' }));
+
+    expect(await screen.findByRole('button', { name: '正在登录…' })).toBeDisabled();
+    expect(screen.getByLabelText('邮箱')).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '正在登录…' }));
+    expect(authService.signInWithPassword).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveSignIn();
+    });
   });
 
   it('switches to sign up mode and submits registration', async () => {
     const { authService } = createAuthService();
 
     render(<App authService={authService} />);
-    await screen.findByRole('heading', { name: '登录知识库' });
+    await screen.findByRole('heading', { name: '欢迎回来' });
 
-    fireEvent.click(screen.getByRole('button', { name: '注册新账号' }));
+    fireEvent.click(screen.getByRole('button', { name: '创建账号' }));
+    expect(screen.getByRole('heading', { name: '创建账号' })).toBeInTheDocument();
+    expect(
+      screen.getByText('使用邮箱和密码创建账号，用来登录团队资料。')
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('邮箱'), {
       target: { value: 'new@example.test' }
     });
@@ -185,9 +356,9 @@ describe('App Phase 3 auth shell', () => {
     });
 
     render(<App authService={authService} />);
-    await screen.findByRole('heading', { name: '登录知识库' });
+    await screen.findByRole('heading', { name: '欢迎回来' });
 
-    fireEvent.click(screen.getByRole('button', { name: '注册新账号' }));
+    fireEvent.click(screen.getByRole('button', { name: '创建账号' }));
     fireEvent.change(screen.getByLabelText('邮箱'), {
       target: { value: 'confirm@example.test' }
     });
@@ -205,7 +376,7 @@ describe('App Phase 3 auth shell', () => {
     const { authService } = createAuthService();
 
     render(<App authService={authService} />);
-    await screen.findByRole('heading', { name: '登录知识库' });
+    await screen.findByRole('heading', { name: '欢迎回来' });
 
     fireEvent.change(screen.getByLabelText('邮箱'), {
       target: { value: 'me@example.test' }
@@ -222,14 +393,14 @@ describe('App Phase 3 auth shell', () => {
     await waitFor(() => {
       expect(authService.signOutCurrentDevice).toHaveBeenCalled();
     });
-    expect(await screen.findByRole('heading', { name: '登录知识库' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '欢迎回来' })).toBeInTheDocument();
   });
 
   it('allows current-device sign out from the auth page when an existing local session is present', async () => {
     const { authService } = createAuthService(sessionFor('local@example.test'));
 
     render(<App authService={authService} forceAuthPage />);
-    await screen.findByRole('heading', { name: '登录知识库' });
+    await screen.findByRole('heading', { name: '欢迎回来' });
 
     fireEvent.click(screen.getByRole('button', { name: '退出当前设备' }));
 
@@ -242,13 +413,13 @@ describe('App Phase 3 auth shell', () => {
     const { authService, unsubscribe } = createAuthService();
 
     const { unmount } = render(<App authService={authService} />);
-    await screen.findByRole('heading', { name: '登录知识库' });
+    await screen.findByRole('heading', { name: '欢迎回来' });
     unmount();
 
     expect(unsubscribe).toHaveBeenCalled();
   });
 
-  it('shows a safe configuration error when Supabase client config is missing', async () => {
+  it('keeps the login page visible when Supabase client config is missing', async () => {
     const brokenAuthService: AuthService = {
       getCurrentSession: vi.fn(async () => {
         throw new Error('Supabase 客户端配置缺失');
@@ -261,12 +432,12 @@ describe('App Phase 3 auth shell', () => {
 
     render(<App authService={brokenAuthService} />);
 
-    expect(
-      await screen.findByText('Supabase 客户端配置缺失')
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '欢迎回来' })).toBeInTheDocument();
+    expect(screen.getByText('Supabase 客户端配置缺失')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument();
   });
 
-  it('shows a safe configuration error when auth subscription setup fails', async () => {
+  it('keeps the login page visible when auth subscription setup fails', async () => {
     const brokenAuthService: AuthService = {
       getCurrentSession: vi.fn(async () => null),
       onSessionChange: vi.fn(() => {
@@ -279,9 +450,45 @@ describe('App Phase 3 auth shell', () => {
 
     render(<App authService={brokenAuthService} />);
 
-    expect(
-      await screen.findByText('Supabase 客户端配置缺失')
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '欢迎回来' })).toBeInTheDocument();
+    expect(screen.getByText('Supabase 客户端配置缺失')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument();
+  });
+
+  it('retries session loading and returns to the signed-in shell after recovery', async () => {
+    const session = sessionFor('recovered@example.test');
+    let resolveRetry!: (session: Session | null) => void;
+    const getCurrentSession = vi
+      .fn<() => Promise<Session | null>>()
+      .mockRejectedValueOnce(new Error('认证服务暂时不可用'))
+      .mockImplementationOnce(
+        () => new Promise((resolve) => {
+          resolveRetry = resolve;
+        })
+      );
+    const authService: AuthService = {
+      getCurrentSession,
+      onSessionChange: vi.fn(() => ({ unsubscribe: vi.fn() })),
+      signInWithPassword: vi.fn(),
+      signUpWithPassword: vi.fn(),
+      signOutCurrentDevice: vi.fn()
+    };
+
+    render(<App authService={authService} />);
+
+    expect(await screen.findByText('认证服务暂时不可用')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '重试' }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('正在读取当前设备会话…');
+    expect(screen.queryByRole('button', { name: '重试' })).not.toBeInTheDocument();
+    expect(getCurrentSession).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      resolveRetry(session);
+    });
+
+    expect(await screen.findByText('recovered@example.test')).toBeInTheDocument();
+    expect(getCurrentSession).toHaveBeenCalledTimes(2);
   });
 
   it('loads workspaces after sign in and shows the empty team creation entry', async () => {
@@ -505,6 +712,12 @@ describe('App Phase 3 auth shell', () => {
     );
 
     expect(await screen.findByRole('navigation', { name: '应用导航' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '打开导航' })).toBeInTheDocument();
+    expect(document.querySelector('.oxygen-app-shell')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '打开导航' }));
+    expect(await screen.findByRole('dialog', { name: '知识库导航' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '知识库导航' })).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: '所有文件' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '最近使用' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '团队小组' })).toBeInTheDocument();
@@ -520,6 +733,7 @@ describe('App Phase 3 auth shell', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '团队小组' }));
     expect(screen.getByRole('region', { name: '团队小组' })).toBeInTheDocument();
+    expect(document.querySelector('.oxygen-page-header')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '新建团队' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '最近使用' }));
@@ -688,12 +902,11 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByRole('region', { name: '文件状态中心' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: '文件状态中心' })).toBeInTheDocument();
-    expect(screen.getByText('暂无文件状态')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '还没有团队资料' })).toBeInTheDocument();
+    expect(screen.getByText('上传 PDF 或 DOCX。处理完成后就可以搜索。')).toBeInTheDocument();
     expect(screen.getByText('拖拽或选择 PDF / DOCX')).toBeInTheDocument();
-    expect(screen.queryByText('还没有资料')).not.toBeInTheDocument();
-    expect(screen.queryByText('上传后会在这里显示处理状态，并可用于搜索。')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '文件状态中心' })).not.toBeInTheDocument();
+    expect(screen.queryByText('暂无文件状态')).not.toBeInTheDocument();
     expect(screen.getByLabelText('选择 PDF 或 DOCX')).toBeInTheDocument();
     expect(screen.getByLabelText('搜索当前团队资料')).toBeInTheDocument();
     expect(screen.queryByRole('complementary', { name: '文件检查器' })).not.toBeInTheDocument();
@@ -755,10 +968,10 @@ describe('App Phase 3 auth shell', () => {
       />
     );
 
-    expect(await screen.findByRole('region', { name: '文件状态中心' })).toBeInTheDocument();
-    expect(screen.getByText('读取文件失败，请稍后重试')).toBeInTheDocument();
+    expect(await screen.findByText('读取文件失败，请稍后重试')).toBeInTheDocument();
     expect(screen.getByLabelText('选择 PDF 或 DOCX')).toBeInTheDocument();
-    expect(screen.queryByText('还没有资料')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '还没有团队资料' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '文件状态中心' })).not.toBeInTheDocument();
   });
 
   it('refreshes the file list after a successful upload', async () => {
