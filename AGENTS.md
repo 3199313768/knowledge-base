@@ -128,3 +128,15 @@ Phase 3 客户端实现从以下功能开始：
 - 当前登录态展示。
 
 除非用户明确要求，不把注册、邀请接受、文件上传、搜索 UI、工作区管理混进同一轮实现。
+
+## Cursor Cloud specific instructions
+
+Linux Cloud Agent 在仓库根目录使用下面的命令。
+
+- 安装依赖：`pnpm install --frozen-lockfile`。默认镜像已有 Node.js 22 与 `pnpm@11.9.0`，与根目录 `packageManager` 一致。再次执行应直接结束。
+- 类型检查：`pnpm typecheck`。客户端生产构建：`pnpm --dir apps/client build`。
+- 单元测试：`pnpm test`。`fixtures/processing/generate.ts` 把双语 PDF 夹具字体固定为 macOS 文件 `/System/Library/Fonts/Supplemental/Arial Unicode.ttf` 并校验 SHA-256。Linux 没有这份字体，`apps/processing-worker` 里「regenerates the versioned corpus with matching byte checksums」会失败。其余单元测试不读取该文件。
+- 开发服务器：`pnpm --dir apps/client exec vite --host 0.0.0.0 --port 1420`。未设置 `TAURI_DEV_HOST` 时，Vite 配置只监听 IPv6 localhost，访问 `http://127.0.0.1:1420/` 会被拒绝。带 `--host 0.0.0.0` 后，本机 IPv4 与 IPv6 都返回页面。
+- 浏览器客户端读取 `VITE_SUPABASE_URL` 与 `VITE_SUPABASE_ANON_KEY`（也接受 `NEXT_PUBLIC_` 前缀）。根目录 `.env.example` 中的 `SUPABASE_URL` 不会注入 Vite。未配置这两项时，登录页显示「Supabase 客户端配置缺失」；邮箱格式和密码长度校验仍在页面内完成。
+- 没有获批专用开发项目时，不运行 `pnpm test:cloud` 或 `pnpm verify:phase-1`。service role key 不进入仓库、日志或 `apps/client`。
+- macOS / iOS 的 Tauri 与 Xcode 构建不在此 Linux 环境中执行。
